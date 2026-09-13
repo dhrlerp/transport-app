@@ -1383,7 +1383,9 @@ const selectTripBilty = (id) => {
   if (!tripForm.lorryFreight) { alert("Lorry Freight enter karein."); return; }
 
   // 🔥 SELECTED BILTIES
-  const selectedBilties = tripForm.selectedBilties || [];
+const selectedBilties = Array.isArray(tripForm.selectedBilties) 
+  ? tripForm.selectedBilties 
+  : [];
   if (selectedBilties.length === 0) { 
     alert("At least one Bilty select karein."); 
     return; 
@@ -1494,7 +1496,9 @@ const selectTripBilty = (id) => {
 const editTrip = (item) => {
   console.log("✏️ EDIT TRIP CALLED:", item);
   
-  let selectedBilties = item.selectedBilties || [];
+let selectedBilties = Array.isArray(item.selectedBilties) 
+  ? item.selectedBilties 
+  : [];
   
   if (selectedBilties.length === 0 && item.biltyId) {
     selectedBilties = [item.biltyId];
@@ -3664,9 +3668,8 @@ console.log(
                       <td>
                         <strong>{item.tripNo}</strong>
                       </td>
-
-                              <td>
-          {item.selectedBilties && item.selectedBilties.length > 1 ? (
+        <td>
+          {Array.isArray(item.selectedBilties) && item.selectedBilties.length > 1 ? (
             <div>
               {item.selectedBilties.map((bId, idx) => {
                 const b = bilties.find(x => String(x.id) === String(bId));
