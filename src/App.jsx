@@ -476,8 +476,31 @@ const lhbPending = () => {
       let { data: biltiesData } = await supabase.from('bilties').select('*');
       if (biltiesData) setBilties(biltiesData);
 
-      let { data: tripsData } = await supabase.from('trips').select('*');
-      if (tripsData) setTrips(tripsData);
+     let { data: tripsData } = await supabase.from('trips').select('*');
+if (tripsData) {
+  const parsedTrips = tripsData.map(trip => {
+    let parsedBilties = [];
+    try {
+      if (typeof trip.selectedBilties === 'string') {
+        // DB me text type hai, JSON string ko array me convert karo
+        parsedBilties = JSON.parse(trip.selectedBilties);
+      } else if (Array.isArray(trip.selectedBilties)) {
+        parsedBilties = trip.selectedBilties;
+      }
+    } catch (e) {
+      console.warn("Parse error for trip:", trip.tripNo, e);
+      parsedBilties = [];
+    }
+    
+    // Agar selectedBilties empty hai lekin biltyId hai, toh biltyId daalo
+    if (parsedBilties.length === 0 && trip.biltyId) {
+      parsedBilties = [trip.biltyId];
+    }
+    
+    return { ...trip, selectedBilties: parsedBilties };
+  });
+  setTrips(parsedTrips);
+}
 
       let { data: podsData } = await supabase.from('pods').select('*');
       if (podsData) setPods(podsData);
@@ -1375,100 +1398,199 @@ const selectTripBilty = (id) => {
   }, [tripForm]);
 
         const saveTrip = async () => {
-  console.log("🚀 SAVE TRIP STARTED");
-  console.log("📝 tripForm:", tripForm);
-  
-  if (!tripForm.biltyId) { alert("Bilty select karein."); return; }
-  if (!tripForm.vehicleId) { alert("Vehicle select karein."); return; }
-  if (!tripForm.lorryFreight) { alert("Lorry Freight enter karein."); return; }
-
-  // 🔥 SELECTED BILTIES
-const selectedBilties = Array.isArray(tripForm.selectedBilties) 
-  ? tripForm.selectedBilties 
-  : [];
-  if (selectedBilties.length === 0) { 
-    alert("At least one Bilty select karein."); 
-    return; 
-  }
-
-  // 🔥 TOTAL FREIGHT (sabhi selected bilties ka)
-  const totalFreight = bilties
-    .filter(b => selectedBilties.includes(b.id))
-    .reduce((sum, b) => sum + Number(b.freight || 0), 0);
-
-  // 🔥 MAIN BILTY (pehli wali)
-  const mainBilty = bilties.find(b => String(b.id) === String(selectedBilties[0]));
-
-  const tripData = {
-    tripNo: tripForm.tripNo || getNextTripNumber(),
-    tripDate: tripForm.tripDate || new Date().toISOString().slice(0, 10),
+    console.log("🚀 SAVE TRIP STARTED");
+    console.log("📝 tripForm:", tripForm);
     
-    // 🔥 MAIN BILTY
-    biltyId: mainBilty?.id || "",
-    biltyNo: mainBilty?.bilty || "",
-    
-    // 🔥 SAARI SELECTED BILTIES
-    selectedBilties: selectedBilties,
-    
-    vehicleId: tripForm.vehicleId || "",
-    vehicleNo: tripForm.vehicleNo || "",
-    vehicleType: tripForm.vehicleType || "",
-    driverName: tripForm.driverName || "",
-    driverMobile: tripForm.driverMobile || "",
-    brokerName: tripForm.brokerName || "",
-    from: tripForm.from || "",
-    to: tripForm.to || "",
-    
-    // 🔥 TOTAL BOOKING FREIGHT
-    bookingFreight: String(totalFreight || 0),
-    
-    lorryFreight: String(tripForm.lorryFreight || 0),
-    advance: String(tripForm.advance || 0),
-    status: tripForm.status || "DISPATCHED",
-    receivedDate: tripForm.receivedDate || null,
-    lorryHireBalance: String(tripForm.lorryHireBalance || 0),
-    damageAddition: String(tripForm.damageAddition || 0),
-    damageDeduction: String(tripForm.damageDeduction || 0),
-    haltingAddition: String(tripForm.haltingAddition || 0),
-    haltingDeduction: String(tripForm.haltingDeduction || 0),
-    otherAddition: String(tripForm.otherAddition || 0),
-    otherDeduction: String(tripForm.otherDeduction || 0),
-    claimAmount: String(tripForm.claimAmount || 0),
-    claimReason: tripForm.claimReason || "",
-    remarks: tripForm.remarks || "",
-    ewayBillNo: tripForm.ewayBillNo || "",
-    ewayBillExpiry: tripForm.ewayBillExpiry || null,
-    materialValue: String(tripForm.materialValue || 0),
-  };
+    if (!tripForm.biltyId) { alert("Bilty select karein."); return; }
+    if (!tripForm.vehicleId) { alert("Vehicle select karein."); return; }
+    if (!tripForm.lorryFreight) { alert("Lorry Freight enter karein."); return; }
 
-  console.log("💾 FINAL DATA SENDING:", tripData);
-
-  try {
-    let result;
-    if (editingTrip && editingTrip.id) {
-      result = await supabase
-        .from('trips')
-        .update(tripData)
-        .eq('id', editingTrip.id);
-    } else {
-      result = await supabase
-        .from('trips')
-        .insert([tripData]);
+    // 🔥 SELECTED BILTIES
+    const selectedBilties = Array.isArray(tripForm.selectedBilties) 
+      ? tripForm.selectedBilties 
+      : [];
+    
+    if (selectedBilties.length === 0) { 
+      alert("At least one Bilty select karein."); 
+      return; 
     }
-    
-    console.log("📊 RESULT:", result);
-    
-    if (result.error) throw result.error;
-    
-    alert(`✅ Trip ${tripData.tripNo} created with ${selectedBilties.length} Bilty(s)!`);
-    setTripForm(createEmptyTrip());
-    setEditingTrip(null);
-    await loadAllData();
-  } catch (e) { 
-    console.error("❌ ERROR:", e);
-    alert("❌ Error: " + e.message); 
-  }
-};
+
+    console.log("🔍 Selected Bilty IDs:", selectedBilties);
+
+    // 🔥 TOTAL FREIGHT
+    const totalFreight = bilties
+      .filter(b => selectedBilties.includes(b.id))
+      .reduce((sum, b) => sum + Number(b.freight || 0), 0);
+
+    // =====================================================
+    // EDIT MODE
+    // =====================================================
+    if (editingTrip && editingTrip.id) {
+      const mainBilty = bilties.find(b => String(b.id) === String(selectedBilties[0]));
+
+      const tripData = {
+        tripNo: tripForm.tripNo || getNextTripNumber(),
+        tripDate: tripForm.tripDate || new Date().toISOString().slice(0, 10),
+        biltyId: mainBilty?.id || "",
+        biltyNo: mainBilty?.bilty || "",
+        selectedBilties: JSON.stringify(selectedBilties),
+        vehicleId: tripForm.vehicleId || "",
+        vehicleNo: tripForm.vehicleNo || "",
+        vehicleType: tripForm.vehicleType || "",
+        driverName: tripForm.driverName || "",
+        driverMobile: tripForm.driverMobile || "",
+        brokerName: tripForm.brokerName || "",
+        from: tripForm.from || "",
+        to: tripForm.to || "",
+        bookingFreight: String(totalFreight || 0),
+        lorryFreight: String(tripForm.lorryFreight || 0),
+        advance: String(tripForm.advance || 0),
+        status: tripForm.status || "DISPATCHED",
+        receivedDate: tripForm.receivedDate || null,
+        lorryHireBalance: String(tripForm.lorryHireBalance || 0),
+        damageAddition: String(tripForm.damageAddition || 0),
+        damageDeduction: String(tripForm.damageDeduction || 0),
+        haltingAddition: String(tripForm.haltingAddition || 0),
+        haltingDeduction: String(tripForm.haltingDeduction || 0),
+        otherAddition: String(tripForm.otherAddition || 0),
+        otherDeduction: String(tripForm.otherDeduction || 0),
+        claimAmount: String(tripForm.claimAmount || 0),
+        claimReason: tripForm.claimReason || "",
+        remarks: tripForm.remarks || "",
+        ewayBillNo: tripForm.ewayBillNo || "",
+        ewayBillExpiry: tripForm.ewayBillExpiry || null,
+        materialValue: String(tripForm.materialValue || 0),
+      };
+
+      try {
+        const result = await supabase
+          .from('trips')
+          .update(tripData)
+          .eq('id', editingTrip.id);
+        
+        if (result.error) throw result.error;
+        
+        alert(`✅ Trip ${tripData.tripNo} updated successfully!`);
+        setTripForm(createEmptyTrip());
+        setEditingTrip(null);
+        await loadAllData();
+      } catch (e) { 
+        console.error("❌ ERROR:", e);
+        alert("❌ Error: " + e.message); 
+      }
+      return;
+    }
+
+    // =====================================================
+    // CREATE MODE - हर bilty के लिए अलग row insert
+    // =====================================================
+    const baseTripNo = tripForm.tripNo || getNextTripNumber();
+    const lorryFreightTotal = Number(tripForm.lorryFreight || 0);
+    const advanceTotal = Number(tripForm.advance || 0);
+
+    // 🔥 सब selected bilty objects निकालो
+    const selectedBiltyObjects = bilties.filter(b => 
+      selectedBilties.includes(b.id)
+    );
+
+    console.log("📦 Selected Bilty Objects:", selectedBiltyObjects.length);
+
+    // 🔥 Total booking freight
+    const totalBookingFreight = selectedBiltyObjects.reduce(
+      (sum, b) => sum + Number(b.freight || 0), 
+      0
+    );
+
+    // 🔥 हर bilty के लिए एक row बनाओ
+    const tripRecords = [];
+    const allSelectedIds = selectedBilties.map(id => String(id));
+
+    selectedBiltyObjects.forEach((bilty, idx) => {
+      const biltyFreight = Number(bilty.freight || 0);
+
+      // Proportional distribution
+      const ratio = totalBookingFreight > 0 
+        ? biltyFreight / totalBookingFreight 
+        : (1 / selectedBiltyObjects.length);
+      
+      const biltyLorryFreight = lorryFreightTotal * ratio;
+      const biltyAdvance = advanceTotal * ratio;
+      const biltyBalance = biltyLorryFreight - biltyAdvance;
+
+      const isFirst = idx === 0;
+
+      const tripData = {
+        tripNo: baseTripNo,
+        tripDate: tripForm.tripDate || new Date().toISOString().slice(0, 10),
+        biltyId: bilty.id,
+        biltyNo: bilty.bilty,
+        // 🔥🔥🔥 ये सबसे important है — JSON STRING में सबकी IDs
+        selectedBilties: JSON.stringify(allSelectedIds),
+        vehicleId: tripForm.vehicleId || "",
+        vehicleNo: tripForm.vehicleNo || "",
+        vehicleType: tripForm.vehicleType || "",
+        driverName: tripForm.driverName || "",
+        driverMobile: tripForm.driverMobile || "",
+        brokerName: tripForm.brokerName || "",
+        from: bilty.pickup || tripForm.from || "",
+        to: bilty.delivery || tripForm.to || "",
+        bookingFreight: String(biltyFreight),
+        lorryFreight: String(biltyLorryFreight.toFixed(2)),
+        advance: String(biltyAdvance.toFixed(2)),
+        status: tripForm.status || "DISPATCHED",
+        receivedDate: tripForm.receivedDate || null,
+        lorryHireBalance: String(biltyBalance.toFixed(2)),
+        damageAddition: isFirst ? String(tripForm.damageAddition || 0) : "0",
+        damageDeduction: isFirst ? String(tripForm.damageDeduction || 0) : "0",
+        haltingAddition: isFirst ? String(tripForm.haltingAddition || 0) : "0",
+        haltingDeduction: isFirst ? String(tripForm.haltingDeduction || 0) : "0",
+        otherAddition: isFirst ? String(tripForm.otherAddition || 0) : "0",
+        otherDeduction: isFirst ? String(tripForm.otherDeduction || 0) : "0",
+        claimAmount: isFirst ? String(tripForm.claimAmount || 0) : "0",
+        claimReason: isFirst ? (tripForm.claimReason || "") : "",
+        remarks: tripForm.remarks || "",
+        ewayBillNo: tripForm.ewayBillNo || "",
+        ewayBillExpiry: tripForm.ewayBillExpiry || null,
+        materialValue: String(tripForm.materialValue || 0),
+      };
+
+      tripRecords.push(tripData);
+    });
+
+    console.log("📊 TRIP RECORDS TO INSERT:", tripRecords.length);
+    console.log("📦 TRIP RECORDS:", tripRecords);
+
+    try {
+      // 🔥 BULK INSERT — सब rows एक साथ
+      const result = await supabase
+        .from('trips')
+        .insert(tripRecords);
+      
+      if (result.error) throw result.error;
+      
+      // बिल्टी status update
+      for (const biltyId of selectedBilties) {
+        await supabase
+          .from('bilties')
+          .update({ status: 'Dispatched' })
+          .eq('id', biltyId);
+      }
+      
+      alert(
+        `✅ Trip ${baseTripNo} created!\n\n` +
+        `📦 ${tripRecords.length} Bilty(s):\n` +
+        tripRecords.map(t => `• ${t.biltyNo} → ₹${t.bookingFreight}`).join('\n')
+      );
+      
+      setTripForm(createEmptyTrip());
+      setEditingTrip(null);
+      await loadAllData();
+      
+    } catch (e) { 
+      console.error("❌ ERROR:", e);
+      alert("❌ Error: " + e.message); 
+    }
+  };
     const deleteTrip = async (id) => {
     if (!window.confirm("Kya aap is Trip ko delete karna chahte hain?")) return;
     try {
@@ -3076,23 +3198,37 @@ console.log(
   .filter((item) => {
     // 🔥 SABHI TRIPS KI SAARI BILTY IDs (selectedBilties se bhi)
     const allTripBiltyIds = [];
+  
+  trips.forEach(trip => {
+    // Edit mode me current trip ignore karo
+    if (editingTrip && String(trip.id) === String(editingTrip.id)) return;
     
-    trips.forEach(trip => {
-      // Edit mode me current trip ignore karo
-      if (editingTrip && String(trip.id) === String(editingTrip.id)) return;
-      
-      // selectedBilties array se saari IDs lo
-      if (trip.selectedBilties && Array.isArray(trip.selectedBilties)) {
-        trip.selectedBilties.forEach(bId => {
-          allTripBiltyIds.push(String(bId));
-        });
+    // selectedBilties - DB me text/array dono ho sakta hai
+    let tripSelectedBilties = trip.selectedBilties;
+    
+    // Agar string hai to parse karo
+    if (typeof tripSelectedBilties === 'string') {
+      try {
+        tripSelectedBilties = JSON.parse(tripSelectedBilties);
+      } catch (e) {
+        tripSelectedBilties = [];
       }
-      
-      // Purani trips ke liye biltyId bhi
-      if (trip.biltyId) {
-        allTripBiltyIds.push(String(trip.biltyId));
-      }
-    });
+    }
+    
+    // Agar array hai to saari IDs lo
+    if (Array.isArray(tripSelectedBilties)) {
+      tripSelectedBilties.forEach(bId => {
+        allTripBiltyIds.push(String(bId));
+      });
+    }
+    
+    // biltyId bhi add karo (backup)
+    if (trip.biltyId) {
+      allTripBiltyIds.push(String(trip.biltyId));
+    }
+  });
+  
+  console.log("🔍 All trip bilty IDs:", allTripBiltyIds);
     
     // Current bilty ko hamesha show karo (edit mode me)
     const isCurrentBilty = String(item.id) === String(tripForm.biltyId);
