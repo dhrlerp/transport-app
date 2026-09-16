@@ -285,6 +285,28 @@ const [pods, setPods] = useState([]);
 const [bills, setBills] = useState([]);
 const [accounts, setAccounts] = useState([]);
 
+  // =========================================================
+  // CUSTOMER VISITS STATE
+  // =========================================================
+  const [customerVisits, setCustomerVisits] = useState([]);
+  const [visitForm, setVisitForm] = useState({
+    id: null,
+    visit_date: new Date().toISOString().slice(0, 10),
+    customer_type: "NEW CUSTOMER",
+    company_name: "",
+    mobile: "",
+    email: "",
+    address: "",
+    remarks: "",
+    persons: [{ name: "", designation: "", mobile: "", email: "" }]
+  });
+  const [editingVisit, setEditingVisit] = useState(null);
+  const [visitSearch, setVisitSearch] = useState("");
+  const [visitTypeFilter, setVisitTypeFilter] = useState("ALL");
+  const [visitFromDate, setVisitFromDate] = useState("");
+  const [visitToDate, setVisitToDate] = useState("");
+  const [visitReportPeriod, setVisitReportPeriod] = useState("DAY");
+
 
     const createEmptyBill = () => ({
     id: null,
@@ -510,6 +532,9 @@ if (tripsData) {
 
       let { data: accountsData } = await supabase.from('accounts').select('*');
       if (accountsData) setAccounts(accountsData);
+
+            let { data: visitsData } = await supabase.from('customer_visits').select('*').order('visit_date', { ascending: false });
+      if (visitsData) setCustomerVisits(visitsData);
       // 🔥 TRACKING VEHICLES LOAD
 let { data: trackingData } = await supabase.from('tracking').select('*');
 if (trackingData) setTrackingVehicles(trackingData);
@@ -10511,6 +10536,674 @@ console.log(
     </>
   );
 };
+
+  // =========================================================
+  // CUSTOMER VISITS FUNCTIONS
+  // =========================================================
+
+  const newVisit = () => {
+    setEditingVisit(null);
+    setVisitForm({
+      id: null,
+      visit_date: new Date().toISOString().slice(0, 10),
+      customer_type: "NEW CUSTOMER",
+      company_name: "",
+      mobile: "",
+      email: "",
+      address: "",
+      remarks: "",
+      persons: [{ name: "", designation: "", mobile: "", email: "" }]
+    });
+    setPage("customerVisits");
+    goTop();
+  };
+
+  const editVisit = (item) => {
+    setVisitForm({
+      id: item.id,
+      visit_date: item.visit_date || new Date().toISOString().slice(0, 10),
+      customer_type: item.customer_type || "NEW CUSTOMER",
+      company_name: item.company_name || "",
+      mobile: item.mobile || "",
+      email: item.email || "",
+      address: item.address || "",
+      remarks: item.remarks || "",
+      persons: Array.isArray(item.persons) && item.persons.length > 0
+        ? item.persons
+        : [{ name: "", designation: "", mobile: "", email: "" }]
+    });
+    setEditingVisit(item);
+    setPage("customerVisits");
+    goTop();
+  };
+
+  const updateVisitForm = (field, value) => {
+    setVisitForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const updatePersonField = (index, field, value) => {
+    setVisitForm((prev) => {
+      const updated = [...prev.persons];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, persons: updated };
+    });
+  };
+
+  const addPersonField = () => {
+    setVisitForm((prev) => ({
+      ...prev,
+      persons: [...prev.persons, { name: "", designation: "", mobile: "", email: "" }]
+    }));
+  };
+
+  const removePersonField = (index) => {
+    if (visitForm.persons.length <= 1) {
+      alert("At least one person required.");
+      return;
+    }
+    setVisitForm((prev) => ({
+      ...prev,
+      persons: prev.persons.filter((_, i) => i !== index)
+    }));
+  };
+
+  const saveVisit = async () => {
+    if (!visitForm.company_name.trim()) {
+      alert("Company / Customer Name enter karein.");
+      return;
+    }
+    if (!visitForm.mobile.trim()) {
+      alert("Mobile Number enter karein.");
+      return;
+    }
+    if (!/^[0-9]{10}$/.test(visitForm.mobile)) {
+      alert("Mobile Number 10 digits ka hona chahiye.");
+      return;
+    }
+
+    // Filter empty persons
+    const cleanPersons = visitForm.persons.filter(
+      (p) => p.name.trim() !== "" || p.mobile.trim() !== ""
+    );
+
+    const finalData = {
+      visit_date: visitForm.visit_date || new Date().toISOString().slice(0, 10),
+      customer_type: visitForm.customer_type || "NEW CUSTOMER",
+      company_name: visitForm.company_name.trim(),
+      mobile: visitForm.mobile.trim(),
+      email: visitForm.email.trim(),
+      address: visitForm.address.trim(),
+      remarks: visitForm.remarks.trim(),
+      persons: cleanPersons,
+    };
+
+    try {
+      let result;
+      if (editingVisit && editingVisit.id) {
+        result = await supabase
+          .from('customer_visits')
+          .update(finalData)
+          .eq('id', editingVisit.id);
+      } else {
+        result = await supabase
+          .from('customer_visits')
+          .insert([finalData]);
+      }
+
+      if (result.error) throw result.error;
+
+      alert(`✅ Customer Visit ${editingVisit ? "updated" : "saved"} successfully!`);
+      setVisitForm({
+        id: null,
+        visit_date: new Date().toISOString().slice(0, 10),
+        customer_type: "NEW CUSTOMER",
+        company_name: "",
+        mobile: "",
+        email: "",
+        address: "",
+        remarks: "",
+        persons: [{ name: "", designation: "", mobile: "", email: "" }]
+      });
+      setEditingVisit(null);
+      await loadAllData();
+    } catch (e) {
+      console.error("❌ ERROR:", e);
+      alert("❌ Error: " + e.message);
+    }
+  };
+
+  const deleteVisit = async (id) => {
+    if (!window.confirm("Kya aap is Customer Visit ko delete karna chahte hain?")) return;
+    try {
+      const { error } = await supabase.from('customer_visits').delete().eq('id', id);
+      if (error) throw error;
+      await loadAllData();
+      alert("✅ Deleted successfully!");
+    } catch (e) {
+      alert("❌ Error: " + e.message);
+    }
+  };
+
+  const exportVisitsExcel = () => {
+    const filtered = getFilteredVisits();
+
+    if (filtered.length === 0) {
+      alert("❌ No data to export.");
+      return;
+    }
+
+    const exportData = [];
+    filtered.forEach((visit) => {
+      if (visit.persons && visit.persons.length > 0) {
+        visit.persons.forEach((person, idx) => {
+          exportData.push({
+            "Visit Date": visit.visit_date,
+            "Customer Type": visit.customer_type,
+            "Company Name": visit.company_name,
+            "Company Mobile": visit.mobile,
+            "Company Email": visit.email,
+            "Address": visit.address,
+            "Person #": idx + 1,
+            "Person Name": person.name || "",
+            "Designation": person.designation || "",
+            "Person Mobile": person.mobile || "",
+            "Person Email": person.email || "",
+            "Remarks": visit.remarks || "",
+          });
+        });
+      } else {
+        exportData.push({
+          "Visit Date": visit.visit_date,
+          "Customer Type": visit.customer_type,
+          "Company Name": visit.company_name,
+          "Company Mobile": visit.mobile,
+          "Company Email": visit.email,
+          "Address": visit.address,
+          "Person #": "-",
+          "Person Name": "-",
+          "Designation": "-",
+          "Person Mobile": "-",
+          "Person Email": "-",
+          "Remarks": visit.remarks || "",
+        });
+      }
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    ws['!cols'] = [
+      { wch: 15 }, { wch: 18 }, { wch: 30 }, { wch: 15 }, { wch: 25 },
+      { wch: 40 }, { wch: 10 }, { wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 30 }
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Customer Visits");
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/octet-stream' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Customer_Visits_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    alert(`✅ ${exportData.length} records exported!`);
+  };
+
+  const getFilteredVisits = () => {
+    return customerVisits.filter((item) => {
+      // Type filter
+      if (visitTypeFilter !== "ALL" && item.customer_type !== visitTypeFilter) return false;
+
+      // Date filter
+      const date = String(item.visit_date || "").slice(0, 10);
+      if (visitFromDate && date < visitFromDate) return false;
+      if (visitToDate && date > visitToDate) return false;
+
+      // Period filter
+      if (visitReportPeriod === "MONTH" && visitFromDate) {
+        if (date.slice(0, 7) !== visitFromDate.slice(0, 7)) return false;
+      }
+      if (visitReportPeriod === "YEAR" && visitFromDate) {
+        if (date.slice(0, 4) !== visitFromDate.slice(0, 4)) return false;
+      }
+
+      // Search filter
+      if (visitSearch.trim()) {
+        const term = visitSearch.toLowerCase();
+        const searchText = `
+          ${item.company_name || ""}
+          ${item.mobile || ""}
+          ${item.email || ""}
+          ${item.address || ""}
+          ${item.remarks || ""}
+          ${(item.persons || []).map(p => `${p.name} ${p.designation} ${p.mobile} ${p.email}`).join(" ")}
+        `.toLowerCase();
+        if (!searchText.includes(term)) return false;
+      }
+
+      return true;
+    });
+  };
+
+  const printVisits = () => {
+    const filtered = getFilteredVisits();
+    if (filtered.length === 0) {
+      alert("❌ No data to print.");
+      return;
+    }
+
+    const printWindow = window.open('', '_blank', 'width=1100,height=800');
+    if (!printWindow) {
+      alert("Popup blocked! Please allow popups.");
+      return;
+    }
+
+    let rows = "";
+    filtered.forEach((visit) => {
+      const persons = visit.persons || [];
+      if (persons.length > 0) {
+        persons.forEach((p, i) => {
+          rows += `
+            <tr>
+              ${i === 0 ? `<td rowspan="${persons.length}">${formatDate(visit.visit_date)}</td>` : ""}
+              ${i === 0 ? `<td rowspan="${persons.length}"><span class="badge">${visit.customer_type}</span></td>` : ""}
+              ${i === 0 ? `<td rowspan="${persons.length}">${visit.company_name}</td>` : ""}
+              ${i === 0 ? `<td rowspan="${persons.length}">${visit.mobile}</td>` : ""}
+              <td>${p.name || "-"}</td>
+              <td>${p.designation || "-"}</td>
+              <td>${p.mobile || "-"}</td>
+              <td>${p.email || "-"}</td>
+            </tr>
+          `;
+        });
+      } else {
+        rows += `
+          <tr>
+            <td>${formatDate(visit.visit_date)}</td>
+            <td><span class="badge">${visit.customer_type}</span></td>
+            <td>${visit.company_name}</td>
+            <td>${visit.mobile}</td>
+            <td>-</td><td>-</td><td>-</td><td>-</td>
+          </tr>
+        `;
+      }
+    });
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Customer Visits Report</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .company { text-align: center; font-size: 22px; font-weight: bold; }
+            .subtitle { text-align: center; color: #666; font-size: 14px; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+            th, td { border: 1px solid #333; padding: 6px 8px; text-align: left; }
+            th { background: #102a43; color: white; }
+            .badge { background: #1769aa; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; }
+            tfoot { background: #f0f0f0; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="company">${COMPANY.name}</div>
+          <div class="subtitle">Customer Visits Report</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Company</th>
+                <th>Company Mobile</th>
+                <th>Person Name</th>
+                <th>Designation</th>
+                <th>Person Mobile</th>
+                <th>Person Email</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+            <tfoot>
+              <tr>
+                <td colspan="8">TOTAL VISITS: ${filtered.length}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 500);
+  };
+
+  // =========================================================
+  // CUSTOMER VISITS PAGE
+  // =========================================================
+
+  const renderCustomerVisitsPage = () => {
+    const filtered = getFilteredVisits();
+
+    return (
+      <>
+        <div className="pageTitle" style={{
+          background: 'linear-gradient(135deg, #102a43 0%, #1a3a5c 100%)',
+          padding: '25px 30px',
+          borderRadius: '10px',
+          color: 'white',
+          marginBottom: '25px'
+        }}>
+          <div>
+            <h2 style={{ color: 'white', margin: 0, fontSize: '24px' }}>📋 Customer Visit Entry</h2>
+            <p style={{ color: '#b8d4e8', margin: '5px 0 0', fontSize: '13px' }}>
+              Daily Customer Visit Records — New / Existing / Pipeline
+            </p>
+          </div>
+        </div>
+
+        {/* FORM */}
+        <div className="card">
+          <h3>{editingVisit ? "Edit Customer Visit" : "New Customer Visit"}</h3>
+
+          <div className="sectionTitle">VISIT DETAILS</div>
+          <div className="formGrid">
+            <div className="field">
+              <label>Visit Date *</label>
+              <input
+                type="date"
+                value={visitForm.visit_date}
+                onChange={(e) => updateVisitForm("visit_date", e.target.value)}
+              />
+            </div>
+
+            <div className="field">
+              <label>Customer Type *</label>
+              <select
+                value={visitForm.customer_type}
+                onChange={(e) => updateVisitForm("customer_type", e.target.value)}
+              >
+                <option value="NEW CUSTOMER">🆕 NEW CUSTOMER</option>
+                <option value="EXISTING CUSTOMER">🔄 EXISTING CUSTOMER</option>
+                <option value="PIPLINE CUSTOMER">📊 PIPELINE CUSTOMER</option>
+                <option value="OTHER">📌 OTHER</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="sectionTitle">COMPANY / CUSTOMER DETAILS</div>
+          <div className="formGrid">
+            <div className="field full">
+              <label>Company / Customer Name *</label>
+              <input
+                value={visitForm.company_name}
+                onChange={(e) => updateVisitForm("company_name", e.target.value)}
+                placeholder="ABC Industries Pvt. Ltd."
+              />
+            </div>
+
+            <div className="field">
+              <label>Mobile Number *</label>
+              <input
+                value={visitForm.mobile}
+                onChange={(e) => updateVisitForm("mobile", e.target.value)}
+                placeholder="9876543210"
+                maxLength={10}
+              />
+            </div>
+
+            <div className="field">
+              <label>Email ID</label>
+              <input
+                type="email"
+                value={visitForm.email}
+                onChange={(e) => updateVisitForm("email", e.target.value)}
+                placeholder="company@email.com"
+              />
+            </div>
+
+            <div className="field full">
+              <label>Address</label>
+              <textarea
+                value={visitForm.address}
+                onChange={(e) => updateVisitForm("address", e.target.value)}
+                placeholder="Full address"
+              />
+            </div>
+
+            <div className="field full">
+              <label>Remarks</label>
+              <textarea
+                value={visitForm.remarks}
+                onChange={(e) => updateVisitForm("remarks", e.target.value)}
+                placeholder="Visit purpose, notes..."
+              />
+            </div>
+          </div>
+
+          {/* PERSONS */}
+          <div className="sectionTitle">👥 PERSONS CONTACTED</div>
+
+          {visitForm.persons.map((person, idx) => (
+            <div key={idx} style={{
+              border: '1px solid #dfe6ed',
+              padding: '12px',
+              borderRadius: '8px',
+              marginBottom: '12px',
+              background: '#f8fafc'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <strong style={{ color: '#102a43' }}>Person #{idx + 1}</strong>
+                {visitForm.persons.length > 1 && (
+                  <button
+                    className="deleteBtn"
+                    onClick={() => removePersonField(idx)}
+                    style={{ padding: '3px 10px', fontSize: '11px' }}
+                  >
+                    ✕ REMOVE
+                  </button>
+                )}
+              </div>
+              <div className="formGrid">
+                <div className="field">
+                  <label>Person Name</label>
+                  <input
+                    value={person.name || ""}
+                    onChange={(e) => updatePersonField(idx, "name", e.target.value)}
+                    placeholder="Full Name"
+                  />
+                </div>
+                <div className="field">
+                  <label>Designation</label>
+                  <input
+                    value={person.designation || ""}
+                    onChange={(e) => updatePersonField(idx, "designation", e.target.value)}
+                    placeholder="Manager / Owner"
+                  />
+                </div>
+                <div className="field">
+                  <label>Mobile Number</label>
+                  <input
+                    value={person.mobile || ""}
+                    onChange={(e) => updatePersonField(idx, "mobile", e.target.value)}
+                    placeholder="9876543210"
+                    maxLength={10}
+                  />
+                </div>
+                <div className="field">
+                  <label>Email ID</label>
+                  <input
+                    value={person.email || ""}
+                    onChange={(e) => updatePersonField(idx, "email", e.target.value)}
+                    placeholder="person@email.com"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+
+          <button className="blueBtn" onClick={addPersonField} style={{ marginTop: '8px' }}>
+            + ADD ANOTHER PERSON
+          </button>
+
+          <div className="formButtons" style={{ marginTop: '20px' }}>
+            {editingVisit && (
+              <button
+                className="grayBtn"
+                onClick={() => {
+                  setEditingVisit(null);
+                  setVisitForm({
+                    id: null,
+                    visit_date: new Date().toISOString().slice(0, 10),
+                    customer_type: "NEW CUSTOMER",
+                    company_name: "",
+                    mobile: "",
+                    email: "",
+                    address: "",
+                    remarks: "",
+                    persons: [{ name: "", designation: "", mobile: "", email: "" }]
+                  });
+                }}
+              >
+                CANCEL
+              </button>
+            )}
+            <button className="greenBtn" onClick={saveVisit}>
+              {editingVisit ? "UPDATE VISIT" : "SAVE VISIT"}
+            </button>
+          </div>
+        </div>
+
+        {/* FILTERS */}
+        <div className="card">
+          <div className="sectionTitle">🔍 FILTERS & REPORT</div>
+          <div className="formGrid">
+            <div className="field">
+              <label>Report Period</label>
+              <select value={visitReportPeriod} onChange={(e) => setVisitReportPeriod(e.target.value)}>
+                <option value="DAY">Day Wise</option>
+                <option value="MONTH">Month Wise</option>
+                <option value="YEAR">Year Wise</option>
+                <option value="CUSTOM">Custom Date</option>
+              </select>
+            </div>
+            <div className="field">
+              <label>From Date</label>
+              <input type="date" value={visitFromDate} onChange={(e) => setVisitFromDate(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>To Date</label>
+              <input type="date" value={visitToDate} onChange={(e) => setVisitToDate(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Customer Type</label>
+              <select value={visitTypeFilter} onChange={(e) => setVisitTypeFilter(e.target.value)}>
+                <option value="ALL">All Types</option>
+                <option value="NEW CUSTOMER">New Customer</option>
+                <option value="EXISTING CUSTOMER">Existing Customer</option>
+                <option value="PIPLINE CUSTOMER">Pipeline Customer</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+            <div className="field full">
+              <label>Search</label>
+              <input
+                value={visitSearch}
+                onChange={(e) => setVisitSearch(e.target.value)}
+                placeholder="Search by company, mobile, person name..."
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', marginTop: '15px', flexWrap: 'wrap' }}>
+            <button
+              className="grayBtn"
+              onClick={() => {
+                setVisitSearch("");
+                setVisitTypeFilter("ALL");
+                setVisitFromDate("");
+                setVisitToDate("");
+                setVisitReportPeriod("DAY");
+              }}
+            >
+              🔄 RESET
+            </button>
+            <button className="greenBtn" onClick={exportVisitsExcel}>
+              📊 EXPORT EXCEL
+            </button>
+            <button className="printBtn" onClick={printVisits} style={{ background: '#1769aa' }}>
+              🖨️ PRINT REPORT
+            </button>
+          </div>
+        </div>
+
+        {/* LIST */}
+        <div className="card">
+          <div className="listHeader">
+            <div>
+              <h2>Customer Visits List</h2>
+              <p>Showing: {filtered.length} of {customerVisits.length}</p>
+            </div>
+          </div>
+
+          <div className="tableWrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Company</th>
+                  <th>Mobile</th>
+                  <th>Email</th>
+                  <th>Persons</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((item) => (
+                  <tr key={item.id}>
+                    <td>{formatDate(item.visit_date)}</td>
+                    <td>
+                      <span style={{
+                        padding: '3px 10px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        background:
+                          item.customer_type === "NEW CUSTOMER" ? "#e8f5e9" :
+                          item.customer_type === "EXISTING CUSTOMER" ? "#e3f2fd" :
+                          item.customer_type === "PIPLINE CUSTOMER" ? "#fff3e0" : "#f3f4f6",
+                        color:
+                          item.customer_type === "NEW CUSTOMER" ? "#16855b" :
+                          item.customer_type === "EXISTING CUSTOMER" ? "#1769aa" :
+                          item.customer_type === "PIPLINE CUSTOMER" ? "#ed6c02" : "#666"
+                      }}>
+                        {item.customer_type}
+                      </span>
+                    </td>
+                    <td><strong>{item.company_name}</strong></td>
+                    <td>{item.mobile}</td>
+                    <td>{item.email || "-"}</td>
+                    <td>
+                      {(item.persons || []).map((p, i) => (
+                        <div key={i} style={{ fontSize: '11px' }}>
+                          • {p.name || "-"} {p.designation ? `(${p.designation})` : ""}
+                        </div>
+                      ))}
+                    </td>
+                    <td>
+                      <button className="editBtn" onClick={() => editVisit(item)}>EDIT</button>
+                      <button className="deleteBtn" onClick={() => deleteVisit(item.id)}>DELETE</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {filtered.length === 0 && (
+              <div className="empty">No customer visits found.</div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
+
 // =========================================================
 // DAILY TRACKING PAGE - WITH DRIVER NUMBER & LOCATION
 // =========================================================
@@ -12946,6 +13639,7 @@ const exportToExcel = (data, filename, headers) => {
   <button onClick={() => setPage("reports")}>📊 Reports</button>
   <button onClick={() => setPage("tracking")}>📦 Consignment Tracking</button>
   <button onClick={() => setPage("dailyTracking")}>🚚 Daily Tracking</button>  {/* 🔥 YEH ADD KARO */}
+    <button onClick={() => setPage("customerVisits")}>📋 Customer Visits</button>
 
 </aside>
 <main className="content">
@@ -12961,6 +13655,7 @@ const exportToExcel = (data, filename, headers) => {
   {page === "reports" && renderReportsPage()}
   {page === "tracking" && renderTrackingPage()}
     {page === "dailyTracking" && renderDailyTrackingPage()}
+      {page === "customerVisits" && renderCustomerVisitsPage()}
 
 </main>
       </div>
