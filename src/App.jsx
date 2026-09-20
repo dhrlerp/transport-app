@@ -3925,11 +3925,28 @@ console.log(
   // =========================================================
 
   const renderLHBalancePage = () => {
-  const filteredTripsLHB = trips.filter((item) =>
+  const filteredTripsLHB = trips.filter((item) => {
+  // 1. Search match
+  const searchMatch = 
     `${item.tripNo} ${item.biltyNo} ${item.vehicleNo} ${item.brokerName} ${item.from} ${item.to}`
       .toLowerCase()
-      .includes(lhbSearch.toLowerCase())
-  );
+      .includes(lhbSearch.toLowerCase());
+
+  if (!searchMatch) return false;
+
+  // 2. 🔥 Already paid check
+  const lhbPaid = Number(item.lhbPaid || 0);
+  const lhbCash = Number(item.lhbCash || 0);
+  const lhbBank = Number(item.lhbBank || 0);
+  const lhbOther = Number(item.lhbOther || 0);
+  const totalPaid = lhbPaid || (lhbCash + lhbBank + lhbOther);
+  const isLHBUpdated = !!item.lhbUpdatedAt;
+
+  // Agar already entry ho chuki hai toh list se hata do
+  if (totalPaid > 0 || isLHBUpdated) return false;
+
+  return true;
+});
 
   const handleSelectTrip = (tripId) => {
     const trip = trips.find((item) => String(item.id) === String(tripId));
@@ -4152,14 +4169,14 @@ console.log(
               />
             </div>
             <div className="field">
-              <label>Other (₹)</label>
-              <input
-                type="number"
-                value={lhbOther}
-                onChange={(e) => setLhbOther(e.target.value)}
-                placeholder="0"
-              />
-            </div>
+  <label>Challan & Bilty Deduction (₹)</label>
+  <input
+    type="number"
+    value={lhbOther}
+    onChange={(e) => setLhbOther(e.target.value)}
+    placeholder="0"
+  />
+</div>
             <div className="field full">
               <label>Remarks</label>
               <textarea
@@ -4183,6 +4200,10 @@ console.log(
             <div>
               <span>NEFT Paid</span>
               <strong>₹{money(lhbBank)}</strong>
+            </div>
+                        <div>
+              <span>Challan & Bilty Deduction</span>
+              <strong>₹{money(lhbOther)}</strong>
             </div>
             <div>
               <span>Total Paid</span>
@@ -8210,35 +8231,69 @@ console.log(
 
     const outstandingRows = getOutstandingRows();
     // =====================================================
-    // PENDING BILTY BILL CALCULATION (Add this block!)
-    // =====================================================
-    const pendingBilties = bilties.filter((item) => {
-      // 1. Check Date
-      if (!reportDateMatches(item.date)) return false;
+// PENDING BILTY BILL CALCULATION (FIXED - Bill Generated Filter)
+// =====================================================
+const pendingBilties = bilties.filter((item) => {
+  // 1. Check Date
+  if (!reportDateMatches(item.date)) return false;
 
-      // 2. Check Customer Filter
-      if (reportCustomer && 
-          String(item.consignor).toUpperCase() !== String(reportCustomer).toUpperCase() && 
-          String(item.consignee).toUpperCase() !== String(reportCustomer).toUpperCase()) {
-        return false;
-      }
+  // 2. Check Customer Filter
+  if (reportCustomer && 
+      String(item.consignor).toUpperCase() !== String(reportCustomer).toUpperCase() && 
+      String(item.consignee).toUpperCase() !== String(reportCustomer).toUpperCase()) {
+    return false;
+  }
 
-      // 3. Calculate Pending Amount
-      const totalFreight = Number(item.freight || 0);
-      
-      // Total received against this bilty (from accounts)
-      const totalReceived = accounts
-        .filter(acc => 
-           String(acc.partyName).toUpperCase() === String(item.consignor).toUpperCase() || 
-           String(acc.partyName).toUpperCase() === String(item.consignee).toUpperCase()
-        )
-        .reduce((sum, acc) => sum + Number(acc.amount || 0), 0);
+  // =====================================================
+  // 🔥 STEP 3: CHECK IF BILL ALREADY GENERATED
+  // =====================================================
+  const biltyNo = String(item.bilty || "").trim().toUpperCase();
 
-      const pending = totalFreight - totalReceived;
+  const billExists = bills.some((bill) => {
+    // Direct match - bill.biltyNo field
+    if (String(bill.biltyNo || "").trim().toUpperCase() === biltyNo) {
+      return true;
+    }
 
-      // Sirf wahi Bilty dikhao jisme pending amount > 0 hai
-      return pending > 0;
-    });
+    // Match by Vch No (some bills use bilty no as vchNo)
+    if (String(bill.vchNo || "").trim().toUpperCase() === biltyNo) {
+      return true;
+    }
+
+    // Match by items - C.N. No. inside bill items
+    if (Array.isArray(bill.items)) {
+      return bill.items.some((billItem) => {
+        const cnNo = String(billItem.cnNo || "").trim().toUpperCase();
+        const desc = String(billItem.description || "").trim().toUpperCase();
+        return (
+          cnNo === biltyNo ||
+          desc.includes(biltyNo)
+        );
+      });
+    }
+
+    return false;
+  });
+
+  // 🔥 Agar Bill already generate ho chuka hai toh PENDING list me mat dikhao
+  if (billExists) return false;
+
+  // =====================================================
+  // STEP 4: CALCULATE PENDING AMOUNT
+  // =====================================================
+  const totalFreight = Number(item.freight || 0);
+  
+  const totalReceived = accounts
+    .filter(acc => 
+       String(acc.partyName).toUpperCase() === String(item.consignor).toUpperCase() || 
+       String(acc.partyName).toUpperCase() === String(item.consignee).toUpperCase()
+    )
+    .reduce((sum, acc) => sum + Number(acc.amount || 0), 0);
+
+  const pending = totalFreight - totalReceived;
+
+  return pending > 0;
+});
     
                     {/* =====================================================
             OUTSTANDING CUSTOMER REPORT (BILL BASED)
@@ -12619,48 +12674,72 @@ const getNextMoneyReceiptNumber = () => {
   const renderPendingBillModal = () => {
     if (!showBillGenerateModal) return null;
 
-    const handleGenerateBill = () => {
-      if (!pendingBillData.partyName.trim()) {
-        alert("Please enter Party Name.");
-        return;
-      }
+    const handleGenerateBill = async () => {
+  if (!pendingBillData.partyName.trim()) {
+    alert("Please enter Party Name.");
+    return;
+  }
 
-      const newBill = {
-        id: Date.now(),
-        billNo: `BILL-${pendingBillData.biltyNo || Date.now()}`,
-        date: new Date().toISOString().slice(0, 10),
-        partyName: pendingBillData.partyName,
-        partyGST: pendingBillData.partyGST || "",
-        partyAddress: pendingBillData.partyAddress || "",
-        billType: "TAX INVOICE",
-        vchNo: `VCH-${pendingBillData.biltyNo || Date.now()}`,
-        biltyNo: pendingBillData.biltyNo || "",
-        items: pendingBillData.items.length > 0 ? pendingBillData.items : [{
-          id: Date.now(),
-          description: `Lorry Freight - ${pendingBillData.biltyNo || "Pending"}`,
-          subDescription: "",
-          date: new Date().toISOString().slice(0, 10),
-          cnNo: pendingBillData.biltyNo || "",
-          lorryNo: "",
-          actualWeight: "",
-          chargeWeight: "",
-          rate: pendingBillData.pending || 0,
-          amount: pendingBillData.pending || 0,
-          hsn: "996519"
-        }],
-        subtotal: pendingBillData.pending || 0,
-        cgst: 0,
-        sgst: 0,
-        total: pendingBillData.pending || 0,
-        igstRate: 5,
-        remarks: `Generated from pending bilty ${pendingBillData.biltyNo || ""}`,
-        createdAt: new Date().toISOString()
-      };
+  // 🔥 AUTO BILL NUMBER GENERATE
+  const year = new Date().getFullYear();
+  const month = String(new Date().getMonth() + 1).padStart(2, '0');
+  const existingBills = bills.filter(b => 
+    b.billNo && b.billNo.startsWith(`INV-${year}-${month}`)
+  );
+  const autoBillNo = `INV-${year}-${month}-${String(existingBills.length + 1).padStart(4, '0')}`;
 
-      setBills(prev => [newBill, ...prev]);
-      setShowBillGenerateModal(false);
-      alert(`✅ Bill ${newBill.billNo} generated successfully!`);
-    };
+  // 🔥 ITEMS KO STRING MEIN CONVERT KARO (Supabase compatibility)
+  const itemsArray = (pendingBillData.items.length > 0 ? pendingBillData.items : [{
+    id: Date.now(),
+    description: `Lorry Freight - ${pendingBillData.biltyNo || "Pending"}`,
+    subDescription: "",
+    date: new Date().toISOString().slice(0, 10),
+    cnNo: pendingBillData.biltyNo || "",
+    lorryNo: "",
+    actualWeight: "",
+    chargeWeight: "",
+    rate: pendingBillData.pending || 0,
+    amount: pendingBillData.pending || 0,
+    hsn: "996519"
+  }]).map(i => ({
+    ...i,
+    rate: String(i.rate || 0),
+    amount: String(i.amount || 0),
+    quantity: String(i.quantity || 1),
+    actualWeight: String(i.actualWeight || 0),
+    chargeWeight: String(i.chargeWeight || 0),
+  }));
+
+  const newBill = {
+    billNo: autoBillNo,
+    date: new Date().toISOString().slice(0, 10),
+    partyName: pendingBillData.partyName,
+    partyGST: pendingBillData.partyGST || "",
+    partyAddress: pendingBillData.partyAddress || "",
+    billType: "TAX INVOICE",
+    vchNo: `VCH-${pendingBillData.biltyNo || Date.now()}`,
+    biltyNo: pendingBillData.biltyNo || "",  // 🔥 IMPORTANT
+    items: itemsArray,
+    subtotal: String(pendingBillData.pending || 0),
+    cgst: "0",
+    sgst: "0",
+    total: String(pendingBillData.pending || 0),
+    igstRate: "5",
+    remarks: `Generated from pending bilty ${pendingBillData.biltyNo || ""}`,
+    createdAt: new Date().toISOString()
+  };
+
+  try {
+    const { error } = await supabase.from('bills').insert([newBill]);
+    if (error) throw error;
+
+    alert(`✅ Bill ${autoBillNo} generated successfully!`);
+    setShowBillGenerateModal(false);
+    await loadAllData();
+  } catch (e) {
+    alert("❌ Error: " + e.message);
+  }
+};
 
     return (
       <div className="printOverlay" onClick={() => setShowBillGenerateModal(false)}>
