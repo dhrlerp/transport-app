@@ -3966,15 +3966,37 @@ console.log(
 
   const handleSaveBalance = async () => {
   console.log("🚀 SAVE LHB STARTED");
-  console.log("📝 lhbTrip:", lhbTrip);
   
   if (!lhbTrip) {
     alert("Please select a Trip first.");
     return;
   }
 
+  // =====================================================
+  // 🔥 DUPLICATE CHECK
+  // =====================================================
+  const originalTrip = trips.find(t => String(t.id) === String(lhbTrip.id));
+  
+  if (originalTrip) {
+    const alreadyPaid = Number(originalTrip.lhbPaid || 0);
+    const alreadyCash = Number(originalTrip.lhbCash || 0);
+    const alreadyBank = Number(originalTrip.lhbBank || 0);
+    const alreadyOther = Number(originalTrip.lhbOther || 0);
+    const alreadyTotalPaid = alreadyPaid || (alreadyCash + alreadyBank + alreadyOther);
+
+    if (alreadyTotalPaid > 0 || originalTrip.lhbUpdatedAt) {
+      const proceed = window.confirm(
+        `⚠️ WARNING!\n\n` +
+        `Is Trip (${originalTrip.tripNo}) ki LHB entry ALREADY ho chuki hai.\n\n` +
+        `Already Paid: ₹${alreadyTotalPaid}\n\n` +
+        `Kya aap dobara update karna chahte hain?`
+      );
+      
+      if (!proceed) return;
+    }
+  }
+
   const totalPayment = lhbPaidTotal();
-  console.log("💰 Total Payment:", totalPayment);
 
   const updatedTrip = {
     ...lhbTrip,
@@ -3984,13 +4006,13 @@ console.log(
     lhbCash: String(lhbCash || 0),
     lhbBank: String(lhbBank || 0),
     lhbOther: String(lhbOther || 0),
+    // 🔥 Challan & Bilty Deduction (margin mein add hoga)
+    challanBiltyDeduction: String(lhbOther || 0),
     lhbRemarks: lhbRemarks || "",
     lhbPaid: String(totalPayment),
     lhbPending: String(lhbCurrentTotal() - totalPayment),
     lhbUpdatedAt: new Date().toISOString()
   };
-
-  console.log("💾 FINAL DATA SENDING:", updatedTrip);
 
   try {
     let { error } = await supabase
@@ -3998,15 +4020,19 @@ console.log(
       .update(updatedTrip)
       .eq('id', lhbTrip.id);
     
-    console.log("📊 RESULT:", error);
-    
     if (error) throw error;
     
-    setLhbTrip(updatedTrip);
     alert("✅ Lorry Hire Balance updated successfully!");
+    setLhbTrip(null);
+    setLhbSearch("");
+    setLhbHalting(0);
+    setLhbDamage(0);
+    setLhbCash(0);
+    setLhbBank(0);
+    setLhbOther(0);
+    setLhbRemarks("");
     await loadAllData();
   } catch (e) {
-    console.error("❌ ERROR:", e);
     alert("❌ Error: " + e.message);
   }
 };
@@ -9628,16 +9654,17 @@ const pendingBilties = bilties.filter((item) => {
               
               if (!customerMap.has(customerName)) {
                 customerMap.set(customerName, {
-                  customer: customerName,
-                  bilties: [],
-                  totalBookingFreight: 0,
-                  totalLorryHire: 0,
-                  totalAdvance: 0,
-                  totalHalting: 0,
-                  totalDeduction: 0,
-                  totalMargin: 0,
-                  count: 0
-                });
+  customer: customerName,
+  bilties: [],
+  totalBookingFreight: 0,
+  totalLorryHire: 0,
+  totalAdvance: 0,
+  totalHalting: 0,
+  totalDeduction: 0,
+  totalMargin: 0,
+  totalChallanDeduction: 0,   // 🔥 NAYA
+  count: 0
+});
               }
               
               const customerData = customerMap.get(customerName);
@@ -9667,13 +9694,16 @@ const pendingBilties = bilties.filter((item) => {
               // Other Addition (Commission) is added to Lorry Hire but NOT to Margin
               const correctedLorryHire = lorryHire + haltingNet + otherAddition;
               
+              // 🔥 Challan & Bilty Deduction (LHB entry se)
+const challanBiltyDeduction = trip ? Number(trip.challanBiltyDeduction || trip.lhbOther || 0) : 0;
+
               // Balance = Corrected Lorry Hire - Advance
               const balance = correctedLorryHire - advance;
               
-              // MARGIN = Booking Freight - Corrected Lorry Hire
-              // Other Addition (Commission) is NOT subtracted from margin
-              const margin = bookingFreight - correctedLorryHire;
-              
+              // 🔥 MARGIN = Booking - Corrected Lorry Hire + Challan Deduction
+// Challan Deduction aapki company ka profit badhata hai
+const margin = bookingFreight - correctedLorryHire + challanBiltyDeduction;
+
               // Check if balance is paid (from LHB records)
               const lhbCash = trip ? Number(trip.lhbCash || 0) : 0;
               const lhbBank = trip ? Number(trip.lhbBank || 0) : 0;
@@ -9691,6 +9721,7 @@ const pendingBilties = bilties.filter((item) => {
                 lorryHire: lorryHire,
                 correctedLorryHire: correctedLorryHire,
                 advance: advance,
+                  challanBiltyDeduction: challanBiltyDeduction,
                 balance: balance,
                 haltingNet: haltingNet,
                 haltingAddition: haltingAddition,
@@ -9710,6 +9741,8 @@ const pendingBilties = bilties.filter((item) => {
               customerData.totalBookingFreight += bookingFreight;
               customerData.totalLorryHire += correctedLorryHire; // Use corrected Lorry Hire
               customerData.totalAdvance += advance;
+              if (!customerData.totalChallanDeduction) customerData.totalChallanDeduction = 0;
+customerData.totalChallanDeduction += challanBiltyDeduction;
               customerData.totalHalting += haltingNet;
               customerData.totalDeduction += totalDeduction;
               customerData.totalMargin += margin;
@@ -10002,6 +10035,7 @@ const pendingBilties = bilties.filter((item) => {
             <th style={{ textAlign: 'right' }}>Final Hire (₹)</th>
             <th style={{ textAlign: 'right' }}>Advance (₹)</th>
             <th style={{ textAlign: 'right' }}>Balance (₹)</th>
+            <th style={{ textAlign: 'right' }}>Challan Deduction (₹)</th>
             <th style={{ textAlign: 'right' }}>Margin (₹)</th>
             <th style={{ textAlign: 'right' }}>Margin %</th>
             <th>Status</th>
@@ -10017,6 +10051,8 @@ const pendingBilties = bilties.filter((item) => {
             const bookingFreight = Number(item.bookingFreight || 0);
             const lorryHire = Number(item.lorryFreight || 0);
             const advance = Number(item.advance || 0);
+            // 🔥 Challan & Bilty Deduction (LHB se aata hai)
+const challanBiltyDeduction = Number(item.challanBiltyDeduction || item.lhbOther || 0);
             
             // Additions
             const haltingAddition = Number(item.haltingAddition || 0);
@@ -10041,8 +10077,8 @@ const pendingBilties = bilties.filter((item) => {
             // Balance = Final Hire - Advance
             const balance = finalHire - advance;
             
-            // Margin = Booking Freight - Lorry Hire (Original margin)
-            const margin = bookingFreight - lorryHire;
+           // 🔥 Margin = Booking - Lorry Hire + Challan Deduction
+const margin = bookingFreight - lorryHire + challanBiltyDeduction;
             
             // Margin % = (Margin / Booking Freight) * 100
             const marginPercent = bookingFreight > 0 ? (margin / bookingFreight) * 100 : 0;
@@ -10118,6 +10154,15 @@ const pendingBilties = bilties.filter((item) => {
                 }}>
                   ₹{money(balance)}
                 </td>
+
+                {/* Challan & Bilty Deduction */}
+<td style={{ 
+  textAlign: 'right', 
+  color: challanBiltyDeduction > 0 ? '#1769aa' : '#666',
+  fontWeight: challanBiltyDeduction > 0 ? 'bold' : 'normal'
+}}>
+  {challanBiltyDeduction > 0 ? `₹${money(challanBiltyDeduction)}` : '-'}
+</td>
                 
                 {/* Margin */}
                 <td style={{ 
@@ -10165,9 +10210,15 @@ const pendingBilties = bilties.filter((item) => {
             return sum + hire + add - ded;
           }, 0);
           const totalBalance = totalFinalHire - totalAdvance;
-          const totalMargin = totalBooking - totalHire;
-          const totalMarginPercent = totalBooking > 0 ? (totalMargin / totalBooking) * 100 : 0;
+          // 🔥 Total Challan Deduction
+const totalChallanDeduction = filteredTrips.reduce(
+  (sum, item) => sum + Number(item.challanBiltyDeduction || item.lhbOther || 0), 
+  0
+);
 
+// 🔥 Updated Margin
+const totalMargin = totalBooking - totalHire + totalChallanDeduction;
+const totalMarginPercent = totalBooking > 0 ? (totalMargin / totalBooking) * 100 : 0;
           return (
             <tfoot>
               <tr style={{ background: '#102a43', color: 'white', fontWeight: 'bold' }}>
@@ -10190,6 +10241,9 @@ const pendingBilties = bilties.filter((item) => {
                 <td style={{ textAlign: 'right', color: '#ffcdd2', fontWeight: 'bold' }}>
                   ₹{money(totalBalance)}
                 </td>
+                <td style={{ textAlign: 'right', color: '#c8e6c9' }}>
+  ₹{money(totalChallanDeduction)}
+</td>
                 <td style={{ textAlign: 'right', color: totalMargin < 0 ? '#ffcdd2' : '#c8e6c9', fontWeight: 'bold' }}>
                   ₹{money(totalMargin)}
                 </td>
