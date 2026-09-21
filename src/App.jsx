@@ -3252,9 +3252,7 @@ console.log(
       allTripBiltyIds.push(String(trip.biltyId));
     }
   });
-  
-  console.log("🔍 All trip bilty IDs:", allTripBiltyIds);
-    
+      
     // Current bilty ko hamesha show karo (edit mode me)
     const isCurrentBilty = String(item.id) === String(tripForm.biltyId);
     
@@ -9584,9 +9582,9 @@ const pendingBilties = bilties.filter((item) => {
           </div>
         )}
 
-                // =========================================================
-// CUSTOMER SUMMARY WITH MARGIN ANALYSIS & ALL DETAILS
-// =========================================================
+     {/* ========================================================= */}
+{/* CUSTOMER SUMMARY WITH MARGIN ANALYSIS & ALL DETAILS */}
+{/* ========================================================= */}
 {reportType === "CUSTOMER_SUMMARY" && (
   <div className="card">
     <div className="listHeader">
@@ -10347,10 +10345,6 @@ const totalMarginPercent = totalBooking > 0 ? (totalMargin / totalBooking) * 100
     // =========================================================
   // CONSIGNMENT TRACKING
   // =========================================================
-
-  const [trackingSearch, setTrackingSearch] = useState("");
-  const [trackingResult, setTrackingResult] = useState(null);
-  const [trackingLoading, setTrackingLoading] = useState(false);
 
     const searchConsignment = (searchTerm) => {
   console.log("🔍 SEARCH STARTED:", searchTerm);
