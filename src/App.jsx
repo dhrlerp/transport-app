@@ -3923,24 +3923,27 @@ console.log(
   // =========================================================
 
   const renderLHBalancePage = () => {
-  const filteredTripsLHB = trips.filter((item) => {
-  // 1. Search match
-  const searchMatch = 
-    `${item.tripNo} ${item.biltyNo} ${item.vehicleNo} ${item.brokerName} ${item.from} ${item.to}`
-      .toLowerCase()
-      .includes(lhbSearch.toLowerCase());
+ const filteredTripsLHB = trips.filter((item) => {
+  // 1. Search match (safe)
+  const searchText = String(lhbSearch || "").trim().toLowerCase();
+  
+  if (searchText) {
+    const allText = `${item.tripNo || ""} ${item.biltyNo || ""} ${item.vehicleNo || ""} ${item.brokerName || ""} ${item.from || ""} ${item.to || ""}`
+      .toLowerCase();
+    
+    if (!allText.includes(searchText)) return false;
+  }
 
-  if (!searchMatch) return false;
-
-  // 2. 🔥 Already paid check
+  // 2. Already paid check — proper check karo
+  const isLHBUpdated = item.lhbUpdatedAt && item.lhbUpdatedAt !== null && item.lhbUpdatedAt !== "null" && item.lhbUpdatedAt !== "";
+  
   const lhbPaid = Number(item.lhbPaid || 0);
   const lhbCash = Number(item.lhbCash || 0);
   const lhbBank = Number(item.lhbBank || 0);
   const lhbOther = Number(item.lhbOther || 0);
-  const totalPaid = lhbPaid || (lhbCash + lhbBank + lhbOther);
-  const isLHBUpdated = !!item.lhbUpdatedAt;
+  const totalPaid = lhbPaid + lhbCash + lhbBank + lhbOther;
 
-  // Agar already entry ho chuki hai toh list se hata do
+  // 🔥 SIRF tab hatao jab dono conditions sahi hon
   if (totalPaid > 0 || isLHBUpdated) return false;
 
   return true;
