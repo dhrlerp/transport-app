@@ -3934,30 +3934,27 @@ console.log(
     if (!allText.includes(searchText)) return false;
   }
 
-  // 2. Calculate PENDING BALANCE properly
+  // 🔥 SIMPLE LOGIC — Sirf wahi trip hatao jiska PURA balance paid ho chuka hai
   const lorryFreight = Number(item.lorryFreight || 0);
   const advance = Number(item.advance || 0);
-  const lhbHalting = Number(item.lhbHalting || 0);
-  const lhbDamage = Number(item.lhbDamage || 0);
   
-  // Total current balance
-  const currentBalance = (lorryFreight + lhbHalting - lhbDamage) - advance;
+  // Current total balance (jo pay karna hai)
+  const currentBalance = lorryFreight - advance;
   
   // Kitna already paid
-  const lhbPaid = Number(item.lhbPaid || 0);
-  const lhbCash = Number(item.lhbCash || 0);
-  const lhbBank = Number(item.lhbBank || 0);
-  const lhbOther = Number(item.lhbOther || 0);
-  const totalPaid = lhbPaid > 0 ? lhbPaid : (lhbCash + lhbBank + lhbOther);
-
-  // Pending balance
+  const totalPaid = Number(item.lhbPaid || 0);
+  
+  // 🔥 Pending = currentBalance - totalPaid
   const pendingBalance = currentBalance - totalPaid;
-
-  // 🔥 SIRF tab hatao jab PURA balance paid ho gaya ho
-  if (pendingBalance <= 0) return false;
-  if (currentBalance <= 0) return false;
-
-  return true;
+  
+  // DEBUG LOG (Console mein dikhega)
+  console.log(`[LHB FILTER] ${item.tripNo}: Freight=${lorryFreight}, Advance=${advance}, Paid=${totalPaid}, Pending=${pendingBalance}`);
+  
+  // Agar pending hai toh SHOW karo
+  if (pendingBalance > 0) return true;
+  
+  // Agar pura paid ho chuka hai toh HIDE karo
+  return false;
 });
 
   const handleSelectTrip = (tripId) => {
