@@ -3924,7 +3924,7 @@ console.log(
 
   const renderLHBalancePage = () => {
  const filteredTripsLHB = trips.filter((item) => {
-  // 1. Search match (safe)
+  // 1. Search match
   const searchText = String(lhbSearch || "").trim().toLowerCase();
   
   if (searchText) {
@@ -3934,17 +3934,28 @@ console.log(
     if (!allText.includes(searchText)) return false;
   }
 
-  // 2. Already paid check — proper check karo
-  const isLHBUpdated = item.lhbUpdatedAt && item.lhbUpdatedAt !== null && item.lhbUpdatedAt !== "null" && item.lhbUpdatedAt !== "";
+  // 2. Calculate PENDING BALANCE properly
+  const lorryFreight = Number(item.lorryFreight || 0);
+  const advance = Number(item.advance || 0);
+  const lhbHalting = Number(item.lhbHalting || 0);
+  const lhbDamage = Number(item.lhbDamage || 0);
   
+  // Total current balance
+  const currentBalance = (lorryFreight + lhbHalting - lhbDamage) - advance;
+  
+  // Kitna already paid
   const lhbPaid = Number(item.lhbPaid || 0);
   const lhbCash = Number(item.lhbCash || 0);
   const lhbBank = Number(item.lhbBank || 0);
   const lhbOther = Number(item.lhbOther || 0);
-  const totalPaid = lhbPaid + lhbCash + lhbBank + lhbOther;
+  const totalPaid = lhbPaid > 0 ? lhbPaid : (lhbCash + lhbBank + lhbOther);
 
-  // 🔥 SIRF tab hatao jab dono conditions sahi hon
-  if (totalPaid > 0 || isLHBUpdated) return false;
+  // Pending balance
+  const pendingBalance = currentBalance - totalPaid;
+
+  // 🔥 SIRF tab hatao jab PURA balance paid ho gaya ho
+  if (pendingBalance <= 0) return false;
+  if (currentBalance <= 0) return false;
 
   return true;
 });
@@ -4392,6 +4403,18 @@ console.log(
     alert("❌ Error: " + e.message);
   }
 };
+
+  const editPOD = (item) => {
+    setPodForm({
+      ...createEmptyPOD(),
+      ...item,
+      id: item.id,
+    });
+    setEditingPOD(item);
+    setPage("pod");
+    goTop();
+  };
+
   // =========================================================
   // DELETE POD
   // =========================================================
