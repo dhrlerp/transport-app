@@ -10348,6 +10348,9 @@ const totalMarginPercent = totalBooking > 0 ? (totalMargin / totalBooking) * 100
     // =========================================================
   // CONSIGNMENT TRACKING
   // =========================================================
+  const [trackingSearch, setTrackingSearch] = useState("");
+  const [trackingResult, setTrackingResult] = useState(null);
+  const [trackingLoading, setTrackingLoading] = useState(false);
 
     const searchConsignment = (searchTerm) => {
   console.log("🔍 SEARCH STARTED:", searchTerm);
