@@ -12177,6 +12177,88 @@ const renderDailyTrackingPage = () => {
   };
 
   // =========================================================
+// 🔥 SEND TRIP DETAILS VIA WHATSAPP
+// =========================================================
+const sendTripWhatsApp = (trip, phone) => {
+  // Saari bilty numbers nikalo
+  let biltyNumbers = "";
+  if (Array.isArray(trip.selectedBilties) && trip.selectedBilties.length > 0) {
+    biltyNumbers = trip.selectedBilties
+      .map(bId => {
+        const b = bilties.find(x => String(x.id) === String(bId));
+        return b ? b.bilty : null;
+      })
+      .filter(Boolean)
+      .join(", ");
+  } else {
+    biltyNumbers = trip.biltyNo || "-";
+  }
+
+  // Calculations
+  const hire = Number(trip.lorryFreight || 0);
+  const advance = Number(trip.advance || 0);
+  const challanDeduction = Number(trip.challanBiltyDeduction || trip.lhbOther || 0);
+  
+  const totalAdditions = 
+    Number(trip.damageAddition || 0) + 
+    Number(trip.haltingAddition || 0) + 
+    Number(trip.otherAddition || 0);
+  
+  const totalDeductions = 
+    Number(trip.damageDeduction || 0) + 
+    Number(trip.haltingDeduction || 0) + 
+    Number(trip.otherDeduction || 0);
+  
+  const finalHire = hire + totalAdditions - totalDeductions;
+  const balance = finalHire - advance;
+
+  // 🔥 WHATSAPP MESSAGE TEMPLATE
+  const message = 
+`🚛 *${COMPANY.name}*
+━━━━━━━━━━━━━━━━━━━━
+
+*TRIP DETAILS*
+
+📋 *Trip No:* ${trip.tripNo || "-"}
+📅 *Trip Date:* ${formatDate(trip.tripDate)}
+🧾 *Bilty No(s):* ${biltyNumbers}
+
+━━━━━━━━━━━━━━━━━━━━
+
+🚚 *Vehicle No:* ${trip.vehicleNo || "-"}
+🚗 *Vehicle Type:* ${trip.vehicleType || "-"}
+👤 *Driver:* ${trip.driverName || "-"}
+📞 *Driver Mobile:* ${trip.driverMobile || "-"}
+
+━━━━━━━━━━━━━━━━━━━━
+
+📍 *From:* ${trip.from || "-"}
+🎯 *To:* ${trip.to || "-"}
+
+━━━━━━━━━━━━━━━━━━━━
+
+💰 *LORRY HIRE DETAILS*
+
+🚛 Lorry Hire: ₹${money(hire)}
+${advance > 0 ? `💵 Advance Paid: ₹${money(advance)}\n` : ""}${totalAdditions > 0 ? `➕ Additions: ₹${money(totalAdditions)}\n` : ""}${totalDeductions > 0 ? `➖ Deductions: ₹${money(totalDeductions)}\n` : ""}${challanDeduction > 0 ? `📄 Challan Deduction: ₹${money(challanDeduction)}\n` : ""}
+━━━━━━━━━━━━━━━━━━━━
+
+✅ *Final Lorry Hire:* ₹${money(finalHire)}
+🔴 *Balance Payable:* ₹${money(balance)}
+
+━━━━━━━━━━━━━━━━━━━━
+
+${trip.brokerName ? `🤝 Broker: ${trip.brokerName}\n` : ""}${trip.remarks ? `📝 Remarks: ${trip.remarks}\n` : ""}
+🙏 *Thank You!*`;
+
+  // WhatsApp URL open karo
+  const cleanPhone = phone.replace(/[^0-9]/g, "");
+  const whatsappUrl = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(message)}`;
+  
+  window.open(whatsappUrl, "_blank");
+};
+
+  // =========================================================
   // PROFESSIONAL TRIP PRINT - UPDATED WITH HALTING ADDITION
   // IMPORTANT: BOOKING FREIGHT + MARGIN NOT PRINTED
   // =========================================================
@@ -12406,8 +12488,26 @@ const renderDailyTrackingPage = () => {
 
           <p className="computerGenerated">This is a computer generated transport document.</p>
 
-          <div className="printButtons">
-            <button className="greenBtn" onClick={() => window.print()}>PRINT TRIP</button>
+                    <div className="printButtons" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button className="greenBtn" onClick={() => window.print()}>🖨️ PRINT TRIP</button>
+            
+            {/* 🔥 NAYA: WHATSAPP SEND BUTTON */}
+            <button 
+              className="blueBtn" 
+              onClick={() => {
+                const phone = prompt("📱 WhatsApp Number daalein (10 digit, e.g., 9876543210):", printTrip.driverMobile || "");
+                if (!phone) return;
+                if (!/^[0-9]{10}$/.test(phone.trim())) {
+                  alert("❌ Sahi 10-digit mobile number daalein.");
+                  return;
+                }
+                sendTripWhatsApp(printTrip, phone.trim());
+              }}
+              style={{ background: '#25D366', borderColor: '#25D366' }}
+            >
+              📱 SEND WHATSAPP
+            </button>
+            
             <button className="grayBtn" onClick={() => setPrintTrip(null)}>CLOSE</button>
           </div>
         </div>
