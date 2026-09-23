@@ -3927,6 +3927,86 @@ console.log(
       </>
     );
   };
+
+  // =========================================================
+// 🔥 SEND LHB PAYMENT DETAILS VIA WHATSAPP
+// =========================================================
+const sendLHBWhatsApp = (trip, phone) => {
+  // Bilty numbers nikalo
+  let biltyNumbers = "";
+  if (Array.isArray(trip._allBiltyNos) && trip._allBiltyNos.length > 0) {
+    biltyNumbers = trip._allBiltyNos.join(", ");
+  } else if (Array.isArray(trip.selectedBilties) && trip.selectedBilties.length > 0) {
+    biltyNumbers = trip.selectedBilties
+      .map(bId => {
+        const b = bilties.find(x => String(x.id) === String(bId));
+        return b ? b.bilty : null;
+      })
+      .filter(Boolean)
+      .join(", ");
+  } else {
+    biltyNumbers = trip.biltyNo || "-";
+  }
+
+  // 🔥 CALCULATIONS
+  const hire = trip._totalLorryFreight !== undefined 
+    ? Number(trip._totalLorryFreight) 
+    : Number(trip.lorryFreight || 0);
+  
+  const advance = trip._totalAdvance !== undefined 
+    ? Number(trip._totalAdvance) 
+    : Number(trip.advance || 0);
+
+  const halting = Number(lhbHalting || 0);
+  const damage = Number(lhbDamage || 0);
+  
+  const cashPaid = Number(lhbCash || 0);
+  const bankPaid = Number(lhbBank || 0);
+  const challanDeduction = Number(lhbOther || 0);
+  
+  // 🔥 TOTAL PAID = Cash + NEFT + Challan
+  const totalPaid = cashPaid + bankPaid + challanDeduction;
+  
+  // 🔥 BALANCE = Hire - Advance (payment se pehle)
+  const currentBalance = (hire + halting - damage) - advance;
+  
+  // 🔥 PENDING = Balance - Total Paid (payment ke baad)
+  const pendingBalance = currentBalance - totalPaid;
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  // 🔥 MESSAGE
+  const message = 
+`${COMPANY.name}
+
+PAYMENT RECEIPT
+
+Trip No - ${trip.tripNo || "-"}
+Date - ${formatDate(today)}
+Bilty No - ${biltyNumbers}
+Vehicle No - ${trip.vehicleNo || "-"}
+Lorry Hire - ${money(hire)}
+Advance - ${money(advance)}
+Balance - ${money(currentBalance)}
+
+
+Cash - Rs.${money(cashPaid)}
+NEFT/Bank - Rs.${money(bankPaid)}
+Challan Deduction - Rs.${money(challanDeduction)}
+
+Final Paid - ${money(totalPaid)} /-
+
+Pending Balance - Rs.${money(pendingBalance)}
+
+Broker - ${trip.brokerName || trip.ownerName || "-"}
+
+Thank You`;
+
+  const cleanPhone = phone.replace(/[^0-9]/g, "");
+  const whatsappUrl = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(message)}`;
+  
+  window.location.href = whatsappUrl;
+};
       // =========================================================
   // LORRY HIRE BALANCE PAGE
   // =========================================================
@@ -4293,7 +4373,7 @@ console.log(
             </div>
           </div>
 
-          <div className="formButtons">
+                   <div className="formButtons">
             <button
               className="blueBtn"
               onClick={() => {
@@ -4309,8 +4389,29 @@ console.log(
             >
               RESET
             </button>
+            
             <button className="greenBtn" onClick={handleSaveBalance}>
               ✅ SAVE BALANCE
+            </button>
+            
+            {/* 🔥 NAYA: WhatsApp Send Button */}
+            <button
+              className="blueBtn"
+              onClick={() => {
+                const phone = prompt(
+                  "📱 WhatsApp Number (10 digit):",
+                  lhbTrip.driverMobile || ""
+                );
+                if (!phone) return;
+                if (!/^[0-9]{10}$/.test(phone.trim())) {
+                  alert("❌ Sahi 10-digit mobile number daalein.");
+                  return;
+                }
+                sendLHBWhatsApp(lhbTrip, phone.trim());
+              }}
+              style={{ background: '#25D366', borderColor: '#25D366' }}
+            >
+              📱 SEND WHATSAPP
             </button>
           </div>
         </div>
