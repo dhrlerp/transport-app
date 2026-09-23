@@ -12227,7 +12227,7 @@ const renderDailyTrackingPage = () => {
               <br />
               {formatDate(printTrip.tripDate)}
             </div>
-           <div>
+                     <div>
   <strong>Bilty Number(s)</strong>
   <br />
   {Array.isArray(printTrip.selectedBilties) && printTrip.selectedBilties.length > 0 ? (
@@ -12235,8 +12235,8 @@ const renderDailyTrackingPage = () => {
       {printTrip.selectedBilties.map((bId, idx) => {
         const b = bilties.find(x => String(x.id) === String(bId));
         return b ? (
-          <div key={idx} style={{ fontSize: '11px', lineHeight: '1.5' }}>
-            • {b.bilty} ({b.consignor} → {b.consignee})
+          <div key={idx} style={{ fontSize: '11px', lineHeight: '1.5', fontWeight: 'bold' }}>
+            {b.bilty}
           </div>
         ) : null;
       })}
@@ -12276,7 +12276,6 @@ const renderDailyTrackingPage = () => {
               </tr>
             </tbody>
           </table>
-
           {/* 🔥 UPDATED: LORRY HIRE WITH HALTING ADDITION */}
           <table className="freightTable">
             <tbody>
