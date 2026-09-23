@@ -991,7 +991,7 @@ if (trackingData) setTrackingVehicles(trackingData);
     );
   };
 
-    const saveVehicle = async () => {
+   const saveVehicle = async () => {
     const number = vehicleForm.vehicleNo.trim().toUpperCase();
 
     if (!number) {
@@ -1004,17 +1004,32 @@ if (trackingData) setTrackingVehicles(trackingData);
       return;
     }
 
+    // 🔥 DUPLICATE CHECK — Same vehicle number already exists?
+    const duplicateVehicle = vehicles.find(
+      (item) => 
+        String(item.vehicleNo || "").trim().toUpperCase() === number &&
+        String(item.id) !== String(editingVehicle)  // Edit mode mein khud ko ignore karo
+    );
+
+    if (duplicateVehicle) {
+      alert(`❌ Vehicle "${number}" already exists!\n\nPlease edit karke change karein.`);
+      return;
+    }
+
     try {
       if (editingVehicle) {
-        let { error } = await supabase.from('vehicles').update({ ...vehicleForm, vehicleNo: number }).eq('id', editingVehicle);
-        if (!error) {
-          alert("Vehicle updated successfully.");
-        }
+        let { error } = await supabase
+          .from('vehicles')
+          .update({ ...vehicleForm, vehicleNo: number })
+          .eq('id', editingVehicle);
+        if (error) throw error;
+        alert("✅ Vehicle updated successfully.");
       } else {
-        let { error } = await supabase.from('vehicles').insert([{ ...vehicleForm, vehicleNo: number }]);
-        if (!error) {
-          alert("Vehicle saved successfully.");
-        }
+        let { error } = await supabase
+          .from('vehicles')
+          .insert([{ ...vehicleForm, vehicleNo: number }]);
+        if (error) throw error;
+        alert("✅ Vehicle saved successfully.");
       }
       setVehicleForm({ ...emptyVehicle });
       setEditingVehicle(null);
@@ -1023,19 +1038,6 @@ if (trackingData) setTrackingVehicles(trackingData);
       alert("❌ Error: " + e.message);
     }
   };
-
-    const deleteVehicle = async (id) => {
-    if (!window.confirm("Kya aap is vehicle ko delete karna chahte hain?")) return;
-    try {
-      let { error } = await supabase.from('vehicles').delete().eq('id', id);
-      if (!error) {
-        loadAllData();
-      }
-    } catch (e) {
-      alert("❌ Error: " + e.message);
-    }
-  };
-
   // =========================================================
   // BILTY
   // =========================================================
