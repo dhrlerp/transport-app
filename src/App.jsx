@@ -466,14 +466,23 @@ const [
   const [lhbOther, setLhbOther] = useState(0);
   const [lhbRemarks, setLhbRemarks] = useState("");
 
-  const lhbCurrentTotal = () => {
-  if (!lhbTrip) return 0;
-  const hire = Number(lhbTrip.lorryFreight || 0);
-  const advance = Number(lhbTrip.advance || 0);
-  const additions = Number(lhbHalting || 0);
-  const deductions = Number(lhbDamage || 0);
-  return (hire + additions - deductions) - advance;
-};
+    const lhbCurrentTotal = () => {
+    if (!lhbTrip || typeof lhbTrip !== 'object') return 0;
+    
+    // 🔥 Grouped trip hai to totals use karo
+    const hire = lhbTrip._totalLorryFreight !== undefined 
+      ? Number(lhbTrip._totalLorryFreight) 
+      : Number(lhbTrip.lorryFreight || 0);
+    
+    const advance = lhbTrip._totalAdvance !== undefined 
+      ? Number(lhbTrip._totalAdvance) 
+      : Number(lhbTrip.advance || 0);
+    
+    const additions = Number(lhbHalting || 0);
+    const deductions = Number(lhbDamage || 0);
+    
+    return (hire + additions - deductions) - advance;
+  };
 
 const lhbPaidTotal = () => {
   return Number(lhbCash || 0) + Number(lhbBank || 0) + Number(lhbOther || 0);
@@ -3923,42 +3932,60 @@ console.log(
   // =========================================================
 
   const renderLHBalancePage = () => {
- const filteredTripsLHB = trips.filter((item) => {
-  // 1. Search match
-  const searchText = String(lhbSearch || "").trim().toLowerCase();
-  
-  if (searchText) {
-    const allText = `${item.tripNo || ""} ${item.biltyNo || ""} ${item.vehicleNo || ""} ${item.brokerName || ""} ${item.from || ""} ${item.to || ""}`
-      .toLowerCase();
+  // 🔥 GROUP BY TRIPNO — Same trip ki saari bilties ek row mein
+  const groupedTripsMap = new Map();
+
+  trips.forEach((item) => {
+    const key = String(item.tripNo || item.id);
     
-    if (!allText.includes(searchText)) return false;
-  }
+    if (!groupedTripsMap.has(key)) {
+      groupedTripsMap.set(key, {
+        ...item,
+        _allTripIds: [item.id],
+        _allBiltyNos: [item.biltyNo],
+        _totalLorryFreight: Number(item.lorryFreight || 0),
+        _totalAdvance: Number(item.advance || 0),
+        _totalLhbPaid: Number(item.lhbPaid || 0),
+        _totalLhbCash: Number(item.lhbCash || 0),
+        _totalLhbBank: Number(item.lhbBank || 0),
+        _totalLhbOther: Number(item.lhbOther || 0),
+      });
+    } else {
+      const existing = groupedTripsMap.get(key);
+      existing._allTripIds.push(item.id);
+      existing._allBiltyNos.push(item.biltyNo);
+      existing._totalLorryFreight += Number(item.lorryFreight || 0);
+      existing._totalAdvance += Number(item.advance || 0);
+      existing._totalLhbPaid += Number(item.lhbPaid || 0);
+      existing._totalLhbCash += Number(item.lhbCash || 0);
+      existing._totalLhbBank += Number(item.lhbBank || 0);
+      existing._totalLhbOther += Number(item.lhbOther || 0);
+    }
+  });
 
-  // 🔥 SIMPLE LOGIC — Sirf wahi trip hatao jiska PURA balance paid ho chuka hai
-  const lorryFreight = Number(item.lorryFreight || 0);
-  const advance = Number(item.advance || 0);
-  
-  // Current total balance (jo pay karna hai)
-  const currentBalance = lorryFreight - advance;
-  
-  // Kitna already paid
-  const totalPaid = Number(item.lhbPaid || 0);
-  
-  // 🔥 Pending = currentBalance - totalPaid
-  const pendingBalance = currentBalance - totalPaid;
-  
-  // DEBUG LOG (Console mein dikhega)
-  console.log(`[LHB FILTER] ${item.tripNo}: Freight=${lorryFreight}, Advance=${advance}, Paid=${totalPaid}, Pending=${pendingBalance}`);
-  
-  // Agar pending hai toh SHOW karo
-  if (pendingBalance > 0) return true;
-  
-  // Agar pura paid ho chuka hai toh HIDE karo
-  return false;
-});
+  const groupedTrips = Array.from(groupedTripsMap.values());
 
-  const handleSelectTrip = (tripId) => {
-    const trip = trips.find((item) => String(item.id) === String(tripId));
+  const filteredTripsLHB = groupedTrips.filter((item) => {
+    // Search filter
+    const searchText = String(lhbSearch || "").trim().toLowerCase();
+    if (searchText) {
+      const allText = `${item.tripNo || ""} ${item._allBiltyNos.join(" ")} ${item.vehicleNo || ""} ${item.brokerName || ""} ${item.from || ""} ${item.to || ""}`
+        .toLowerCase();
+      if (!allText.includes(searchText)) return false;
+    }
+
+    // 🔥 GROUPED balance calculation
+    const currentBalance = item._totalLorryFreight - item._totalAdvance;
+    const totalPaid = item._totalLhbPaid;
+    const pendingBalance = currentBalance - totalPaid;
+
+    return pendingBalance > 0;
+  });
+
+  // ... baaki existing code (handleSelectTrip, handleSaveBalance, return JSX)
+
+    const handleSelectTrip = (tripId) => {
+    const trip = filteredTripsLHB.find((item) => String(item.id) === String(tripId));
     if (!trip) {
       setLhbTrip(null);
       return;
@@ -4007,15 +4034,13 @@ console.log(
 
   const totalPayment = lhbPaidTotal();
 
-  const updatedTrip = {
-    ...lhbTrip,
+    const updateData = {
     lhbPayTo: lhbPayTo || "BROKER",
     lhbHalting: String(lhbHalting || 0),
     lhbDamage: String(lhbDamage || 0),
     lhbCash: String(lhbCash || 0),
     lhbBank: String(lhbBank || 0),
     lhbOther: String(lhbOther || 0),
-    // 🔥 Challan & Bilty Deduction (margin mein add hoga)
     challanBiltyDeduction: String(lhbOther || 0),
     lhbRemarks: lhbRemarks || "",
     lhbPaid: String(totalPayment),
@@ -4023,13 +4048,19 @@ console.log(
     lhbUpdatedAt: new Date().toISOString()
   };
 
-  try {
-    let { error } = await supabase
-      .from('trips')
-      .update(updatedTrip)
-      .eq('id', lhbTrip.id);
+
+    try {
+    // 🔥 Agar grouped trip hai to SAARI rows update karo
+    const tripIdsToUpdate = lhbTrip._allTripIds || [lhbTrip.id];
     
-    if (error) throw error;
+    for (const tId of tripIdsToUpdate) {
+      const { error } = await supabase
+        .from('trips')
+        .update(updateData)
+        .eq('id', tId);
+      
+      if (error) throw error;
+    }
     
     alert("✅ Lorry Hire Balance updated successfully!");
     setLhbTrip(null);
@@ -4096,13 +4127,25 @@ console.log(
                 const balance = hire - advance;
                 return (
                   <tr key={item.id}>
-                    <td><strong>{item.tripNo}</strong></td>
-                    <td>{item.biltyNo}</td>
-                    <td>{item.vehicleNo}</td>
-                    <td>{item.brokerName || item.ownerName || "-"}</td>
-                    <td>₹{money(hire)}</td>
-                    <td>₹{money(advance)}</td>
-                    <td>{item.status}</td>
+  <td><strong>{item.tripNo}</strong></td>
+  <td>
+    {item._allBiltyNos && item._allBiltyNos.length > 1 ? (
+      <div>
+        {item._allBiltyNos.map((bNo, idx) => (
+          <div key={idx} style={{ fontSize: '11px', lineHeight: '1.4' }}>
+            • {bNo}
+          </div>
+        ))}
+      </div>
+    ) : (
+      item.biltyNo || "-"
+    )}
+  </td>
+  <td>{item.vehicleNo}</td>
+  <td>{item.brokerName || item.ownerName || "-"}</td>
+  <td>₹{money(item._totalLorryFreight || item.lorryFreight)}</td>
+  <td>₹{money(item._totalAdvance || item.advance)}</td>
+  <td>{item.status}</td>
                     <td>
                       <button
                         className="blueBtn"
@@ -12184,11 +12227,24 @@ const renderDailyTrackingPage = () => {
               <br />
               {formatDate(printTrip.tripDate)}
             </div>
-            <div>
-              <strong>Bilty Number</strong>
-              <br />
-              {printTrip.biltyNo}
-            </div>
+           <div>
+  <strong>Bilty Number(s)</strong>
+  <br />
+  {Array.isArray(printTrip.selectedBilties) && printTrip.selectedBilties.length > 0 ? (
+    <div>
+      {printTrip.selectedBilties.map((bId, idx) => {
+        const b = bilties.find(x => String(x.id) === String(bId));
+        return b ? (
+          <div key={idx} style={{ fontSize: '11px', lineHeight: '1.5' }}>
+            • {b.bilty} ({b.consignor} → {b.consignee})
+          </div>
+        ) : null;
+      })}
+    </div>
+  ) : (
+    printTrip.biltyNo || "-"
+  )}
+</div>
           </div>
 
           <div className="printParties">
