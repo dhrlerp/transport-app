@@ -9501,6 +9501,67 @@ const pendingBilties = bilties.filter((item) => {
         { key: 'status', label: 'Status' },
       ];
     }
+
+      else if (reportType === "PENDING_BILL") {
+    // 🔥 Pending Bilty Bill export
+    data = pendingBilties.map((item) => {
+      const totalFreight = Number(item.freight || 0);
+      const totalReceived = accounts
+        .filter(acc => acc.partyName === item.consignor || acc.partyName === item.consignee)
+        .reduce((sum, acc) => sum + Number(acc.amount || 0), 0);
+      const pending = totalFreight - totalReceived;
+
+      return {
+        bilty: item.bilty || "-",
+        date: item.date || "-",
+        consignor: item.consignor || "-",
+        consignee: item.consignee || "-",
+        totalFreight: totalFreight,
+        received: totalReceived,
+        pending: pending,
+        status: item.status || "Pending"
+      };
+    });
+    filename = "Pending_Bilty_Bill";
+    headers = [
+      { key: 'bilty', label: 'Bilty No.' },
+      { key: 'date', label: 'Date' },
+      { key: 'consignor', label: 'Consignor' },
+      { key: 'consignee', label: 'Consignee' },
+      { key: 'totalFreight', label: 'Total Freight' },
+      { key: 'received', label: 'Received' },
+      { key: 'pending', label: 'Pending' },
+      { key: 'status', label: 'Status' },
+    ];
+  }
+  else if (reportType === "OUTSTANDING") {
+    // 🔥 Customer Outstanding export (flattened)
+    const rows = [];
+    outstandingRows.forEach((row) => {
+      row.billRows.forEach((bill) => {
+        rows.push({
+          customer: row.customer,
+          billNo: bill.billNo || "-",
+          biltyNo: bill.biltyNo || "-",
+          date: bill.date || "-",
+          submissionDate: bill.submissionDate || "-",
+          ageBucket: bill.ageBucket || "-",
+          pending: bill.pending || 0,
+        });
+      });
+    });
+    data = rows;
+    filename = "Customer_Outstanding";
+    headers = [
+      { key: 'customer', label: 'Customer Name' },
+      { key: 'billNo', label: 'Bill No.' },
+      { key: 'biltyNo', label: 'Bilty No.' },
+      { key: 'date', label: 'Bill Date' },
+      { key: 'submissionDate', label: 'Bill Submission Date' },
+      { key: 'ageBucket', label: 'Age Bucket' },
+      { key: 'pending', label: 'Pending Amount' },
+    ];
+  }
     else {
       alert("❌ Export not supported for this report type.");
       return;
