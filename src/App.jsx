@@ -8374,13 +8374,67 @@ Thank You`;
       );
     });
 
-    const filteredTrips = trips.filter((item) => {
-      return (
-        reportDateMatches(item.tripDate) &&
-        (!reportBroker ||
-          String(item.brokerName || "").toUpperCase() === String(reportBroker).toUpperCase()) &&
-        reportMatches(item.tripNo, item.biltyNo, item.vehicleNo, item.driverName, item.brokerName, item.from, item.to, item.status)
-      );
+     // 🔥 GROUP TRIPS BY TRIPNO — Same trip ki saari bilties ek row mein
+    const groupedTripsMap = new Map();
+    
+    trips.forEach((item) => {
+      // 🔥 Date filter
+      if (!reportDateMatches(item.tripDate)) return;
+      
+      // 🔥 Broker filter
+      if (reportBroker && 
+          String(item.brokerName || "").toUpperCase() !== String(reportBroker).toUpperCase()) {
+        return;
+      }
+      
+      // 🔥 Search filter
+      if (!reportMatches(item.tripNo, item.biltyNo, item.vehicleNo, item.driverName, item.brokerName, item.from, item.to, item.status)) {
+        return;
+      }
+      
+      const key = String(item.tripNo || item.id);
+      
+      if (!groupedTripsMap.has(key)) {
+        groupedTripsMap.set(key, {
+          ...item,
+          _allTripIds: [item.id],
+          _allBiltyNos: [item.biltyNo],
+          _totalBookingFreight: Number(item.bookingFreight || 0),
+          _totalLorryFreight: Number(item.lorryFreight || 0),
+          _totalAdvance: Number(item.advance || 0),
+          _totalHaltingAddition: Number(item.haltingAddition || 0),
+          _totalHaltingDeduction: Number(item.haltingDeduction || 0),
+          _totalDamageAddition: Number(item.damageAddition || 0),
+          _totalDamageDeduction: Number(item.damageDeduction || 0),
+          _totalOtherAddition: Number(item.otherAddition || 0),
+          _totalOtherDeduction: Number(item.otherDeduction || 0),
+          _totalChallanDeduction: Number(item.challanBiltyDeduction || item.lhbOther || 0),
+        });
+      } else {
+        const existing = groupedTripsMap.get(key);
+        if (item.biltyNo && !existing._allBiltyNos.includes(item.biltyNo)) {
+          existing._allBiltyNos.push(item.biltyNo);
+        }
+        existing._allTripIds.push(item.id);
+        existing._totalBookingFreight += Number(item.bookingFreight || 0);
+        existing._totalLorryFreight += Number(item.lorryFreight || 0);
+        existing._totalAdvance += Number(item.advance || 0);
+        existing._totalHaltingAddition += Number(item.haltingAddition || 0);
+        existing._totalHaltingDeduction += Number(item.haltingDeduction || 0);
+        existing._totalDamageAddition += Number(item.damageAddition || 0);
+        existing._totalDamageDeduction += Number(item.damageDeduction || 0);
+        existing._totalOtherAddition += Number(item.otherAddition || 0);
+        existing._totalOtherDeduction += Number(item.otherDeduction || 0);
+        existing._totalChallanDeduction += Number(item.challanBiltyDeduction || item.lhbOther || 0);
+      }
+    });
+    
+    // 🔥 SORT BY DATE (latest pehle)
+    const filteredTrips = Array.from(groupedTripsMap.values()).sort((a, b) => {
+      const dateA = new Date(a.tripDate || "2000-01-01");
+      const dateB = new Date(b.tripDate || "2000-01-01");
+      if (dateB - dateA !== 0) return dateB - dateA;
+      return String(a.tripNo || "").localeCompare(String(b.tripNo || ""));
     });
 
     const filteredAccounts = accounts.filter((item) => {
@@ -10216,7 +10270,7 @@ customerData.totalChallanDeduction += challanBiltyDeduction;
   </div>
 )}
 
-{/* TRIP REPORT - WITH BOOKING FREIGHT, HALTING, DAMAGE & MARGIN */}
+{/* TRIP REPORT - WITH MONTH WISE GROUPING */}
 {reportType === "TRIP" && (
   <div className="card">
     <div className="listHeader">
@@ -10228,286 +10282,365 @@ customerData.totalChallanDeduction += challanBiltyDeduction;
         </p>
       </div>
     </div>
-    <div className="tableWrapper" style={{ overflowX: 'auto' }}>
-      <table style={{ minWidth: '1200px', fontSize: '12px' }}>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Trip No.</th>
-            <th>Bilty No.</th>
-            <th>Vehicle</th>
-            <th>Driver</th>
-            <th>Broker</th>
-            <th>From</th>
-            <th>To</th>
-            <th style={{ textAlign: 'right' }}>Booking Freight (₹)</th>
-            <th style={{ textAlign: 'right' }}>Lorry Hire (₹)</th>
-            <th style={{ textAlign: 'right' }}>Halting (+/-)</th>
-            <th style={{ textAlign: 'right' }}>Damage (+/-)</th>
-            <th style={{ textAlign: 'right' }}>Other (+/-)</th>
-            <th style={{ textAlign: 'right' }}>Final Hire (₹)</th>
-            <th style={{ textAlign: 'right' }}>Advance (₹)</th>
-            <th style={{ textAlign: 'right' }}>Balance (₹)</th>
-            <th style={{ textAlign: 'right' }}>Challan Deduction (₹)</th>
-            <th style={{ textAlign: 'right' }}>Margin (₹)</th>
-            <th style={{ textAlign: 'right' }}>Margin %</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredTrips.map((item) => {
-            // =====================================================
-            // 1. CALCULATE ALL VALUES
-            // =====================================================
-            
-            // Base values
-            const bookingFreight = Number(item.bookingFreight || 0);
-            const lorryHire = Number(item.lorryFreight || 0);
-            const advance = Number(item.advance || 0);
-            // 🔥 Challan & Bilty Deduction (LHB se aata hai)
-const challanBiltyDeduction = Number(item.challanBiltyDeduction || item.lhbOther || 0);
-            
-            // Additions
-            const haltingAddition = Number(item.haltingAddition || 0);
-            const haltingDeduction = Number(item.haltingDeduction || 0);
-            const damageAddition = Number(item.damageAddition || 0);
-            const damageDeduction = Number(item.damageDeduction || 0);
-            const otherAddition = Number(item.otherAddition || 0);
-            const otherDeduction = Number(item.otherDeduction || 0);
-            
-            // Halting = Addition - Deduction
-            const haltingNet = haltingAddition - haltingDeduction;
-            const damageNet = damageAddition - damageDeduction;
-            const otherNet = otherAddition - otherDeduction;
-            
-            // Total Additions & Deductions
-            const totalAdditions = haltingAddition + damageAddition + otherAddition;
-            const totalDeductions = haltingDeduction + damageDeduction + otherDeduction;
-            
-            // Final Hire = Lorry Hire + Additions - Deductions
-            const finalHire = lorryHire + totalAdditions - totalDeductions;
-            
-            // Balance = Final Hire - Advance
-            const balance = finalHire - advance;
-            
-           // 🔥 Margin = Booking - Lorry Hire + Challan Deduction
-const margin = bookingFreight - lorryHire + challanBiltyDeduction;
-            
-            // Margin % = (Margin / Booking Freight) * 100
-            const marginPercent = bookingFreight > 0 ? (margin / bookingFreight) * 100 : 0;
-            
-            // Check if any adjustments exist
-            const hasAdjustments = (haltingNet !== 0 || damageNet !== 0 || otherNet !== 0);
-            
-            return (
-              <tr key={item.id} style={hasAdjustments ? { background: '#f0f8ff' } : {}}>
-                <td>{formatDate(item.tripDate)}</td>
-                <td><strong>{item.tripNo}</strong></td>
-                <td>{item.biltyNo}</td>
-                <td>{item.vehicleNo}</td>
-                <td>{item.driverName}</td>
-                <td>{item.brokerName || "-"}</td>
-                <td>{item.from}</td>
-                <td>{item.to}</td>
-                
-                {/* Booking Freight */}
-                <td style={{ textAlign: 'right', fontWeight: 'bold' }}>
-                  ₹{money(bookingFreight)}
-                </td>
-                
-                {/* Lorry Hire */}
-                <td style={{ textAlign: 'right' }}>
-                  ₹{money(lorryHire)}
-                </td>
-                
-                {/* Halting */}
-                <td style={{ 
-                  textAlign: 'right', 
-                  color: haltingNet > 0 ? '#16855b' : haltingNet < 0 ? '#c62828' : '#666' 
-                }}>
-                  {haltingNet !== 0 ? `₹${money(haltingNet)}` : '-'}
-                </td>
-                
-                {/* Damage */}
-                <td style={{ 
-                  textAlign: 'right', 
-                  color: damageNet > 0 ? '#16855b' : damageNet < 0 ? '#c62828' : '#666' 
-                }}>
-                  {damageNet !== 0 ? `₹${money(damageNet)}` : '-'}
-                </td>
-                
-                {/* Other */}
-                <td style={{ 
-                  textAlign: 'right', 
-                  color: otherNet > 0 ? '#16855b' : otherNet < 0 ? '#c62828' : '#666' 
-                }}>
-                  {otherNet !== 0 ? `₹${money(otherNet)}` : '-'}
-                </td>
-                
-                {/* Final Hire */}
-                <td style={{ 
-                  textAlign: 'right', 
-                  fontWeight: 'bold',
-                  color: finalHire !== lorryHire ? '#1769aa' : '#102a43'
-                }}>
-                  ₹{money(finalHire)}
-                  {finalHire !== lorryHire && <span style={{ fontSize: '10px', color: '#1769aa' }}> *</span>}
-                </td>
-                
-                {/* Advance */}
-                <td style={{ textAlign: 'right' }}>
-                  ₹{money(advance)}
-                </td>
-                
-                {/* Balance */}
-                <td style={{ 
-                  textAlign: 'right', 
-                  fontWeight: 'bold',
-                  color: balance < 0 ? '#c62828' : '#16855b'
-                }}>
-                  ₹{money(balance)}
-                </td>
-
-                {/* Challan & Bilty Deduction */}
-<td style={{ 
-  textAlign: 'right', 
-  color: challanBiltyDeduction > 0 ? '#1769aa' : '#666',
-  fontWeight: challanBiltyDeduction > 0 ? 'bold' : 'normal'
-}}>
-  {challanBiltyDeduction > 0 ? `₹${money(challanBiltyDeduction)}` : '-'}
-</td>
-                
-                {/* Margin */}
-                <td style={{ 
-                  textAlign: 'right', 
-                  fontWeight: 'bold',
-                  color: margin < 0 ? '#c62828' : '#16855b'
-                }}>
-                  ₹{money(margin)}
-                </td>
-                
-                {/* Margin % */}
-                <td style={{ 
-                  textAlign: 'right', 
-                  fontWeight: 'bold',
-                  color: marginPercent < 0 ? '#c62828' : marginPercent > 30 ? '#1769aa' : '#16855b'
-                }}>
-                  {marginPercent.toFixed(2)}%
-                </td>
-                
-                {/* Status */}
-                <td>
-                  <span className={item.status === "DELIVERED" || item.status === "RECEIVED" ? "statusActive" : "statusInactive"}>
-                    {item.status}
-                  </span>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-
-        {/* =====================================================
-            TRIP REPORT - TOTALS
-        ===================================================== */}
-        {filteredTrips.length > 0 && (() => {
-          const totalBooking = filteredTrips.reduce((sum, item) => sum + Number(item.bookingFreight || 0), 0);
-          const totalHire = filteredTrips.reduce((sum, item) => sum + Number(item.lorryFreight || 0), 0);
-          const totalAdvance = filteredTrips.reduce((sum, item) => sum + Number(item.advance || 0), 0);
-          const totalHalting = filteredTrips.reduce((sum, item) => sum + Number(item.haltingAddition || 0) - Number(item.haltingDeduction || 0), 0);
-          const totalDamage = filteredTrips.reduce((sum, item) => sum + Number(item.damageAddition || 0) - Number(item.damageDeduction || 0), 0);
-          const totalOther = filteredTrips.reduce((sum, item) => sum + Number(item.otherAddition || 0) - Number(item.otherDeduction || 0), 0);
-          const totalFinalHire = filteredTrips.reduce((sum, item) => {
-            const hire = Number(item.lorryFreight || 0);
-            const add = Number(item.haltingAddition || 0) + Number(item.damageAddition || 0) + Number(item.otherAddition || 0);
-            const ded = Number(item.haltingDeduction || 0) + Number(item.damageDeduction || 0) + Number(item.otherDeduction || 0);
-            return sum + hire + add - ded;
-          }, 0);
-          const totalBalance = totalFinalHire - totalAdvance;
-          // 🔥 Total Challan Deduction
-const totalChallanDeduction = filteredTrips.reduce(
-  (sum, item) => sum + Number(item.challanBiltyDeduction || item.lhbOther || 0), 
-  0
-);
-
-// 🔥 Updated Margin
-const totalMargin = totalBooking - totalHire + totalChallanDeduction;
-const totalMarginPercent = totalBooking > 0 ? (totalMargin / totalBooking) * 100 : 0;
-          return (
-            <tfoot>
-              <tr style={{ background: '#102a43', color: 'white', fontWeight: 'bold' }}>
-                <td colSpan="8" style={{ textAlign: 'right', color: 'white' }}>
-                  GRAND TOTAL ({filteredTrips.length} Trips)
-                </td>
-                <td style={{ textAlign: 'right', color: 'white' }}>₹{money(totalBooking)}</td>
-                <td style={{ textAlign: 'right', color: 'white' }}>₹{money(totalHire)}</td>
-                <td style={{ textAlign: 'right', color: totalHalting !== 0 ? '#ffcdd2' : 'white' }}>
-                  {totalHalting !== 0 ? `₹${money(totalHalting)}` : '-'}
-                </td>
-                <td style={{ textAlign: 'right', color: totalDamage !== 0 ? '#ffcdd2' : 'white' }}>
-                  {totalDamage !== 0 ? `₹${money(totalDamage)}` : '-'}
-                </td>
-                <td style={{ textAlign: 'right', color: totalOther !== 0 ? '#ffcdd2' : 'white' }}>
-                  {totalOther !== 0 ? `₹${money(totalOther)}` : '-'}
-                </td>
-                <td style={{ textAlign: 'right', color: '#c8e6c9' }}>₹{money(totalFinalHire)}</td>
-                <td style={{ textAlign: 'right', color: 'white' }}>₹{money(totalAdvance)}</td>
-                <td style={{ textAlign: 'right', color: '#ffcdd2', fontWeight: 'bold' }}>
-                  ₹{money(totalBalance)}
-                </td>
-                <td style={{ textAlign: 'right', color: '#c8e6c9' }}>
-  ₹{money(totalChallanDeduction)}
-</td>
-                <td style={{ textAlign: 'right', color: totalMargin < 0 ? '#ffcdd2' : '#c8e6c9', fontWeight: 'bold' }}>
-                  ₹{money(totalMargin)}
-                </td>
-                <td style={{ textAlign: 'right', color: totalMarginPercent < 0 ? '#ffcdd2' : '#c8e6c9', fontWeight: 'bold' }}>
-                  {totalMarginPercent.toFixed(2)}%
-                </td>
-                <td></td>
-              </tr>
-            </tfoot>
-          );
-        })()}
-      </table>
-      {filteredTrips.length === 0 && (
-        <div className="empty">No Trip found with current filters.</div>
-      )}
-    </div>
     
-    {/* =====================================================
-        LEGEND
-    ===================================================== */}
-    {filteredTrips.length > 0 && (
-      <div style={{ 
-        marginTop: '15px', 
-        padding: '12px 16px', 
-        background: '#f8fafc', 
-        borderRadius: '8px',
-        fontSize: '12px',
-        color: '#666',
-        display: 'flex',
-        gap: '20px',
-        flexWrap: 'wrap',
-        border: '1px solid #e5e7eb'
-      }}>
-        <div>
-          <span style={{ fontWeight: 'bold' }}>📌 Legend:</span>
+    {(() => {
+      // 🔥 MONTH WISE GROUP KARO
+      const groupedByMonth = filteredTrips.reduce((acc, trip) => {
+        const tripDate = trip.tripDate || "";
+        const monthKey = tripDate.slice(0, 7); // YYYY-MM
+        
+        if (!acc[monthKey]) {
+          acc[monthKey] = [];
+        }
+        acc[monthKey].push(trip);
+        return acc;
+      }, {});
+      
+      // 🔥 MONTHS KO SORT KARO (latest pehle)
+      const sortedMonths = Object.keys(groupedByMonth).sort((a, b) => b.localeCompare(a));
+      
+      // 🔥 MONTH NAME NIKALO
+      const getMonthName = (monthKey) => {
+        if (!monthKey) return "Unknown";
+        const [year, month] = monthKey.split("-");
+        const monthNames = ["January", "February", "March", "April", "May", "June", 
+                           "July", "August", "September", "October", "November", "December"];
+        const monthIndex = parseInt(month, 10) - 1;
+        return `${monthNames[monthIndex]} ${year}`;
+      };
+      
+      // 🔥 GRAND TOTAL CALCULATE KARO
+      const grandTotal = {
+        booking: 0, hire: 0, advance: 0, balance: 0,
+        halting: 0, damage: 0, other: 0, finalHire: 0,
+        challan: 0, margin: 0
+      };
+      
+      filteredTrips.forEach((item) => {
+        const bookingFreight = Number(item.bookingFreight || 0);
+        const lorryHire = Number(item.lorryFreight || 0);
+        const advance = Number(item.advance || 0);
+        const challanBiltyDeduction = Number(item.challanBiltyDeduction || item.lhbOther || 0);
+        
+        const haltingAddition = Number(item.haltingAddition || 0);
+        const haltingDeduction = Number(item.haltingDeduction || 0);
+        const damageAddition = Number(item.damageAddition || 0);
+        const damageDeduction = Number(item.damageDeduction || 0);
+        const otherAddition = Number(item.otherAddition || 0);
+        const otherDeduction = Number(item.otherDeduction || 0);
+        
+        const totalAdditions = haltingAddition + damageAddition + otherAddition;
+        const totalDeductions = haltingDeduction + damageDeduction + otherDeduction;
+        const finalHire = lorryHire + totalAdditions - totalDeductions;
+        const balance = finalHire - advance;
+        const margin = bookingFreight - lorryHire + challanBiltyDeduction;
+        
+        grandTotal.booking += bookingFreight;
+        grandTotal.hire += lorryHire;
+        grandTotal.advance += advance;
+        grandTotal.balance += balance;
+        grandTotal.halting += (haltingAddition - haltingDeduction);
+        grandTotal.damage += (damageAddition - damageDeduction);
+        grandTotal.other += (otherAddition - otherDeduction);
+        grandTotal.finalHire += finalHire;
+        grandTotal.challan += challanBiltyDeduction;
+        grandTotal.margin += margin;
+      });
+      
+      if (filteredTrips.length === 0) {
+        return (
+          <div className="empty" style={{ padding: '40px', textAlign: 'center' }}>
+            <h3>📭 No Trip found with current filters</h3>
+          </div>
+        );
+      }
+      
+      return (
+        <>
+          <div className="tableWrapper" style={{ overflowX: 'auto' }}>
+            <table style={{ minWidth: '1200px', fontSize: '12px' }}>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Trip No.</th>
+                  <th>Bilty No.</th>
+                  <th>Vehicle</th>
+                  <th>Driver</th>
+                  <th>Broker</th>
+                  <th>From</th>
+                  <th>To</th>
+                  <th style={{ textAlign: 'right' }}>Booking Freight (₹)</th>
+                  <th style={{ textAlign: 'right' }}>Lorry Hire (₹)</th>
+                  <th style={{ textAlign: 'right' }}>Halting (+/-)</th>
+                  <th style={{ textAlign: 'right' }}>Damage (+/-)</th>
+                  <th style={{ textAlign: 'right' }}>Other (+/-)</th>
+                  <th style={{ textAlign: 'right' }}>Final Hire (₹)</th>
+                  <th style={{ textAlign: 'right' }}>Advance (₹)</th>
+                  <th style={{ textAlign: 'right' }}>Balance (₹)</th>
+                  <th style={{ textAlign: 'right' }}>Challan Deduction (₹)</th>
+                  <th style={{ textAlign: 'right' }}>Margin (₹)</th>
+                  <th style={{ textAlign: 'right' }}>Margin %</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedMonths.map((monthKey) => {
+                  const monthTrips = groupedByMonth[monthKey];
+                  const monthName = getMonthName(monthKey);
+                  
+                  // 🔥 MONTH TOTALS
+                  let monthTotal = {
+                    booking: 0, hire: 0, advance: 0, balance: 0,
+                    halting: 0, damage: 0, other: 0, finalHire: 0,
+                    challan: 0, margin: 0
+                  };
+                  
+                  monthTrips.forEach((item) => {
+                    const bookingFreight = Number(item.bookingFreight || 0);
+                    const lorryHire = Number(item.lorryFreight || 0);
+                    const advance = Number(item.advance || 0);
+                    const challanBiltyDeduction = Number(item.challanBiltyDeduction || item.lhbOther || 0);
+                    
+                    const haltingAddition = Number(item.haltingAddition || 0);
+                    const haltingDeduction = Number(item.haltingDeduction || 0);
+                    const damageAddition = Number(item.damageAddition || 0);
+                    const damageDeduction = Number(item.damageDeduction || 0);
+                    const otherAddition = Number(item.otherAddition || 0);
+                    const otherDeduction = Number(item.otherDeduction || 0);
+                    
+                    const totalAdditions = haltingAddition + damageAddition + otherAddition;
+                    const totalDeductions = haltingDeduction + damageDeduction + otherDeduction;
+                    const finalHire = lorryHire + totalAdditions - totalDeductions;
+                    const balance = finalHire - advance;
+                    const margin = bookingFreight - lorryHire + challanBiltyDeduction;
+                    
+                    monthTotal.booking += bookingFreight;
+                    monthTotal.hire += lorryHire;
+                    monthTotal.advance += advance;
+                    monthTotal.balance += balance;
+                    monthTotal.halting += (haltingAddition - haltingDeduction);
+                    monthTotal.damage += (damageAddition - damageDeduction);
+                    monthTotal.other += (otherAddition - otherDeduction);
+                    monthTotal.finalHire += finalHire;
+                    monthTotal.challan += challanBiltyDeduction;
+                    monthTotal.margin += margin;
+                  });
+                  
+                  const monthMarginPercent = monthTotal.booking > 0 
+                    ? (monthTotal.margin / monthTotal.booking) * 100 
+                    : 0;
+                  
+                  return (
+                    <React.Fragment key={monthKey}>
+                      {/* 🔥 MONTH HEADER ROW */}
+                      <tr style={{ 
+                        background: 'linear-gradient(135deg, #102a43 0%, #1a3a5c 100%)', 
+                        color: 'white',
+                        fontWeight: 'bold'
+                      }}>
+                        <td colSpan="20" style={{ 
+                          padding: '12px 15px', 
+                          fontSize: '14px',
+                          color: 'white',
+                          letterSpacing: '0.5px'
+                        }}>
+                          📅 {monthName} ({monthTrips.length} Trip{monthTrips.length > 1 ? 's' : ''})
+                        </td>
+                      </tr>
+                      
+                      {/* 🔥 TRIPS OF THIS MONTH */}
+                      {monthTrips.map((item) => {
+  // 🔥 GROUPED TOTALS USE KARO
+  const bookingFreight = Number(item._totalBookingFreight || item.bookingFreight || 0);
+  const lorryHire = Number(item._totalLorryFreight || item.lorryFreight || 0);
+  const advance = Number(item._totalAdvance || item.advance || 0);
+  const challanBiltyDeduction = Number(item._totalChallanDeduction || 0);
+  
+  const haltingAddition = Number(item._totalHaltingAddition || 0);
+  const haltingDeduction = Number(item._totalHaltingDeduction || 0);
+  const damageAddition = Number(item._totalDamageAddition || 0);
+  const damageDeduction = Number(item._totalDamageDeduction || 0);
+  const otherAddition = Number(item._totalOtherAddition || 0);
+  const otherDeduction = Number(item._totalOtherDeduction || 0);
+                        
+                        const haltingNet = haltingAddition - haltingDeduction;
+                        const damageNet = damageAddition - damageDeduction;
+                        const otherNet = otherAddition - otherDeduction;
+                        
+                        const totalAdditions = haltingAddition + damageAddition + otherAddition;
+                        const totalDeductions = haltingDeduction + damageDeduction + otherDeduction;
+                        const finalHire = lorryHire + totalAdditions - totalDeductions;
+                        const balance = finalHire - advance;
+                        const margin = bookingFreight - lorryHire + challanBiltyDeduction;
+                        const marginPercent = bookingFreight > 0 ? (margin / bookingFreight) * 100 : 0;
+                        
+                        const hasAdjustments = (haltingNet !== 0 || damageNet !== 0 || otherNet !== 0);
+                        
+                        return (
+                          <tr key={item.id} style={hasAdjustments ? { background: '#f0f8ff' } : {}}>
+                            <td>{formatDate(item.tripDate)}</td>
+                            <td><strong>{item.tripNo}</strong></td>
+                            <td>
+  {item._allBiltyNos && item._allBiltyNos.length > 0 ? (
+    <div>
+      {item._allBiltyNos.map((bNo, idx) => (
+        <div key={idx} style={{ fontSize: '11px', lineHeight: '1.4', fontWeight: 'bold' }}>
+          • {bNo}
         </div>
-        <div>
-          <span style={{ color: '#16855b' }}>● Positive</span>
-          <span style={{ color: '#c62828', marginLeft: '12px' }}>● Negative</span>
-          <span style={{ color: '#1769aa', marginLeft: '12px' }}>● Adjusted</span>
-        </div>
-        <div>
-          <span style={{ fontWeight: 'bold' }}>Halting/Damage/Other:</span>
-          <span style={{ marginLeft: '5px' }}>(+) Addition & (-) Deduction</span>
-        </div>
-        <div>
-          <span style={{ fontWeight: 'bold' }}>Margin %:</span>
-          <span style={{ marginLeft: '5px' }}>Green = Profit | Red = Loss</span>
-        </div>
-      </div>
-    )}
+      ))}
+    </div>
+  ) : (
+    item.biltyNo || "-"
+  )}
+</td>
+                            <td>{item.vehicleNo}</td>
+                            <td>{item.driverName}</td>
+                            <td>{item.brokerName || "-"}</td>
+                            <td>{item.from}</td>
+                            <td>{item.to}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 'bold' }}>₹{money(bookingFreight)}</td>
+                            <td style={{ textAlign: 'right' }}>₹{money(lorryHire)}</td>
+                            <td style={{ textAlign: 'right', color: haltingNet > 0 ? '#16855b' : haltingNet < 0 ? '#c62828' : '#666' }}>
+                              {haltingNet !== 0 ? `₹${money(haltingNet)}` : '-'}
+                            </td>
+                            <td style={{ textAlign: 'right', color: damageNet > 0 ? '#16855b' : damageNet < 0 ? '#c62828' : '#666' }}>
+                              {damageNet !== 0 ? `₹${money(damageNet)}` : '-'}
+                            </td>
+                            <td style={{ textAlign: 'right', color: otherNet > 0 ? '#16855b' : otherNet < 0 ? '#c62828' : '#666' }}>
+                              {otherNet !== 0 ? `₹${money(otherNet)}` : '-'}
+                            </td>
+                            <td style={{ textAlign: 'right', fontWeight: 'bold', color: finalHire !== lorryHire ? '#1769aa' : '#102a43' }}>
+                              ₹{money(finalHire)}
+                            </td>
+                            <td style={{ textAlign: 'right' }}>₹{money(advance)}</td>
+                            <td style={{ textAlign: 'right', fontWeight: 'bold', color: balance < 0 ? '#c62828' : '#16855b' }}>
+                              ₹{money(balance)}
+                            </td>
+                            <td style={{ textAlign: 'right', color: challanBiltyDeduction > 0 ? '#1769aa' : '#666', fontWeight: challanBiltyDeduction > 0 ? 'bold' : 'normal' }}>
+                              {challanBiltyDeduction > 0 ? `₹${money(challanBiltyDeduction)}` : '-'}
+                            </td>
+                            <td style={{ textAlign: 'right', fontWeight: 'bold', color: margin < 0 ? '#c62828' : '#16855b' }}>
+                              ₹{money(margin)}
+                            </td>
+                            <td style={{ textAlign: 'right', fontWeight: 'bold', color: marginPercent < 0 ? '#c62828' : marginPercent > 30 ? '#1769aa' : '#16855b' }}>
+                              {marginPercent.toFixed(2)}%
+                            </td>
+                            <td>
+                              <span className={item.status === "DELIVERED" || item.status === "RECEIVED" ? "statusActive" : "statusInactive"}>
+                                {item.status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      
+                      {/* 🔥 MONTH SUB-TOTAL ROW */}
+                      <tr style={{ 
+                        background: '#e8f5e9', 
+                        fontWeight: 'bold',
+                        borderTop: '2px solid #16855b',
+                        borderBottom: '2px solid #16855b'
+                      }}>
+                        <td colSpan="8" style={{ textAlign: 'right', color: '#102a43', fontSize: '13px' }}>
+                          📊 {monthName} Total →
+                        </td>
+                        <td style={{ textAlign: 'right', color: '#102a43' }}>₹{money(monthTotal.booking)}</td>
+                        <td style={{ textAlign: 'right', color: '#102a43' }}>₹{money(monthTotal.hire)}</td>
+                        <td style={{ textAlign: 'right', color: monthTotal.halting !== 0 ? '#102a43' : '#666' }}>
+                          {monthTotal.halting !== 0 ? `₹${money(monthTotal.halting)}` : '-'}
+                        </td>
+                        <td style={{ textAlign: 'right', color: monthTotal.damage !== 0 ? '#102a43' : '#666' }}>
+                          {monthTotal.damage !== 0 ? `₹${money(monthTotal.damage)}` : '-'}
+                        </td>
+                        <td style={{ textAlign: 'right', color: monthTotal.other !== 0 ? '#102a43' : '#666' }}>
+                          {monthTotal.other !== 0 ? `₹${money(monthTotal.other)}` : '-'}
+                        </td>
+                        <td style={{ textAlign: 'right', color: '#102a43' }}>₹{money(monthTotal.finalHire)}</td>
+                        <td style={{ textAlign: 'right', color: '#102a43' }}>₹{money(monthTotal.advance)}</td>
+                        <td style={{ textAlign: 'right', color: '#102a43' }}>₹{money(monthTotal.balance)}</td>
+                        <td style={{ textAlign: 'right', color: '#102a43' }}>₹{money(monthTotal.challan)}</td>
+                        <td style={{ textAlign: 'right', color: monthTotal.margin < 0 ? '#c62828' : '#16855b', fontWeight: 'bold' }}>
+                          ₹{money(monthTotal.margin)}
+                        </td>
+                        <td style={{ textAlign: 'right', color: monthTotal.margin < 0 ? '#c62828' : '#16855b', fontWeight: 'bold' }}>
+                          {monthMarginPercent.toFixed(2)}%
+                        </td>
+                        <td></td>
+                      </tr>
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+              
+              {/* 🔥 GRAND TOTAL FOOTER */}
+              <tfoot>
+                <tr style={{ 
+                  background: '#102a43', 
+                  color: 'white', 
+                  fontWeight: 'bold',
+                  fontSize: '13px'
+                }}>
+                  <td colSpan="8" style={{ textAlign: 'right', color: 'white', padding: '12px' }}>
+                    🎯 GRAND TOTAL ({filteredTrips.length} Trips | {sortedMonths.length} Months) →
+                  </td>
+                  <td style={{ textAlign: 'right', color: 'white' }}>₹{money(grandTotal.booking)}</td>
+                  <td style={{ textAlign: 'right', color: '#c8e6c9' }}>₹{money(grandTotal.hire)}</td>
+                  <td style={{ textAlign: 'right', color: grandTotal.halting !== 0 ? '#c8e6c9' : 'white' }}>
+                    {grandTotal.halting !== 0 ? `₹${money(grandTotal.halting)}` : '-'}
+                  </td>
+                  <td style={{ textAlign: 'right', color: grandTotal.damage !== 0 ? '#c8e6c9' : 'white' }}>
+                    {grandTotal.damage !== 0 ? `₹${money(grandTotal.damage)}` : '-'}
+                  </td>
+                  <td style={{ textAlign: 'right', color: grandTotal.other !== 0 ? '#c8e6c9' : 'white' }}>
+                    {grandTotal.other !== 0 ? `₹${money(grandTotal.other)}` : '-'}
+                  </td>
+                  <td style={{ textAlign: 'right', color: '#c8e6c9' }}>₹{money(grandTotal.finalHire)}</td>
+                  <td style={{ textAlign: 'right', color: 'white' }}>₹{money(grandTotal.advance)}</td>
+                  <td style={{ textAlign: 'right', color: '#c8e6c9' }}>₹{money(grandTotal.balance)}</td>
+                  <td style={{ textAlign: 'right', color: '#c8e6c9' }}>₹{money(grandTotal.challan)}</td>
+                  <td style={{ textAlign: 'right', color: grandTotal.margin < 0 ? '#ffcdd2' : '#c8e6c9', fontWeight: 'bold' }}>
+                    ₹{money(grandTotal.margin)}
+                  </td>
+                  <td style={{ textAlign: 'right', color: grandTotal.margin < 0 ? '#ffcdd2' : '#c8e6c9', fontWeight: 'bold' }}>
+                    {grandTotal.booking > 0 ? ((grandTotal.margin / grandTotal.booking) * 100).toFixed(2) : '0.00'}%
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          
+          {/* LEGEND */}
+          <div style={{ 
+            marginTop: '15px', 
+            padding: '12px 16px', 
+            background: '#f8fafc', 
+            borderRadius: '8px',
+            fontSize: '12px',
+            color: '#666',
+            display: 'flex',
+            gap: '20px',
+            flexWrap: 'wrap',
+            border: '1px solid #e5e7eb'
+          }}>
+            <div><span style={{ fontWeight: 'bold' }}>📌 Legend:</span></div>
+            <div>
+              <span style={{ color: '#16855b' }}>● Positive</span>
+              <span style={{ color: '#c62828', marginLeft: '12px' }}>● Negative</span>
+              <span style={{ color: '#1769aa', marginLeft: '12px' }}>● Adjusted</span>
+            </div>
+            <div>
+              <span style={{ fontWeight: 'bold' }}>📅 Month-wise:</span>
+              <span style={{ marginLeft: '5px' }}>Latest month pehle</span>
+            </div>
+            <div>
+              <span style={{ fontWeight: 'bold' }}>Margin %:</span>
+              <span style={{ marginLeft: '5px' }}>Green = Profit | Red = Loss</span>
+            </div>
+          </div>
+        </>
+      );
+    })()}
   </div>
 )}
 
