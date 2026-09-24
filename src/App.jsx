@@ -455,6 +455,7 @@ const [
   const [vehicleSearch, setVehicleSearch] = useState("");
   const [biltySearch, setBiltySearch] = useState("");
   const [tripSearch, setTripSearch] = useState("");
+  const [podReceivedSearch, setPodReceivedSearch] = useState("");
 
   const [printBilty, setPrintBilty] = useState(null);
   const [printTrip, setPrintTrip] = useState(null);
@@ -1640,7 +1641,51 @@ const selectTripBilty = (id) => {
       if (!error) { loadAllData(); }
     } catch (e) { alert("❌ Error: " + e.message); }
   };
+// =========================================================
+// 🔥 UPDATE POD RECEIVED DATE
+// =========================================================
+const updatePodReceived = async (trip, podDate) => {
+  if (!podDate) {
+    alert("Please POD received date select karein.");
+    return;
+  }
 
+  try {
+    // 🔥 Same tripNo ki SAARI rows update karo
+    const tripIdsToUpdate = [];
+    
+    // Agar grouped trip hai (same tripNo wali saari rows)
+    trips.forEach(t => {
+      if (String(t.tripNo) === String(trip.tripNo)) {
+        tripIdsToUpdate.push(t.id);
+      }
+    });
+
+    if (tripIdsToUpdate.length === 0) {
+      tripIdsToUpdate.push(trip.id);
+    }
+
+    const updateData = {
+      podReceived: true,
+      podReceivedDate: podDate,
+      podUpdatedAt: new Date().toISOString()
+    };
+
+    for (const tId of tripIdsToUpdate) {
+      const { error } = await supabase
+        .from('trips')
+        .update(updateData)
+        .eq('id', tId);
+      
+      if (error) throw error;
+    }
+
+    alert(`✅ POD Received date updated successfully!\n\nTrip: ${trip.tripNo}\nDate: ${formatDate(podDate)}`);
+    await loadAllData();
+  } catch (e) {
+    alert("❌ Error: " + e.message);
+  }
+};
   const newTrip = () => {
     setEditingTrip(null);
 
@@ -3242,6 +3287,10 @@ console.log(
         .includes(tripSearch.toLowerCase())
     );
 
+    const podFilteredTrips = podReceivedSearch.trim() 
+  ? filteredTrips.filter((item) => `${item.vehicleNo} ${item.tripNo} ${item.biltyNo}`.toLowerCase().includes(podReceivedSearch.toLowerCase()))
+  : filteredTrips;
+
     const margin =
       Number(tripForm.bookingFreight || 0) -
       Number(tripForm.lorryFreight || 0);
@@ -3824,37 +3873,55 @@ console.log(
               <p>Total: {trips.length}</p>
             </div>
 
-            <input
-              className="search"
-              placeholder="Search Trip / Bilty / Vehicle / Broker..."
-              value={tripSearch}
-              onChange={(e) =>
-                setTripSearch(e.target.value)
-              }
-            />
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+  <input
+    className="search"
+    placeholder="🔍 Search Trip / Bilty / Vehicle / Broker..."
+    value={tripSearch}
+    onChange={(e) =>
+      setTripSearch(e.target.value)
+    }
+    style={{ flex: 1, minWidth: '200px' }}
+  />
+  <input
+    className="search"
+    placeholder="🚚 POD Received - Vehicle No. dalo"
+    value={podReceivedSearch}
+    onChange={(e) =>
+      setPodReceivedSearch(e.target.value)
+    }
+    style={{ 
+      flex: 1, 
+      minWidth: '200px',
+      borderColor: '#16855b',
+      borderWidth: '2px'
+    }}
+  />
+</div>
           </div>
 
           <div className="tableWrapper">
             <table>
-              <thead>
-                <tr>
-                  <th>LHC No.</th>
-                  <th>Bilty</th>
-                  <th>Broker</th>
-                  <th>Vehicle</th>
-                  <th>From</th>
-                  <th>To</th>
-                  <th>Lorry Freight</th>
-                  <th>Advance</th>
-                  <th>Balance</th>
-                  <th>Margin %</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
+             <thead>
+  <tr>
+    <th>LHC No.</th>
+    <th>Bilty</th>
+    <th>Broker</th>
+    <th>Vehicle</th>
+    <th>From</th>
+    <th>To</th>
+    <th>Lorry Freight</th>
+    <th>Advance</th>
+    <th>Balance</th>
+    <th>Margin %</th>
+    <th>Status</th>
+    <th>POD Received</th>
+    <th>Action</th>
+  </tr>
+</thead>
 
               <tbody>
-                {filteredTrips.map((item) => {
+                {podFilteredTrips.map((item) => {
                   const booking = Number(
                     item.bookingFreight || 0
                   );
@@ -3931,20 +3998,64 @@ console.log(
                       </td>
 
                       <td>
-                        <span className="statusActive">
-                          {item.status}
-                        </span>
-                      </td>
+  <span className="statusActive">
+    {item.status}
+  </span>
+</td>
 
-                      <td>
-                        <button
-                          className="editBtn"
-                          onClick={() =>
-                            editTrip(item)
-                          }
-                        >
-                          EDIT
-                        </button>
+{/* 🔥 NAYA: POD RECEIVED COLUMN */}
+<td style={{ textAlign: 'center' }}>
+  {item.podReceived ? (
+    <div>
+      <span style={{ 
+        background: '#e8f5e9', 
+        color: '#16855b', 
+        padding: '3px 10px', 
+        borderRadius: '12px',
+        fontSize: '11px',
+        fontWeight: 'bold'
+      }}>
+        ✅ {formatDate(item.podReceivedDate)}
+      </span>
+    </div>
+  ) : (
+    <button
+      onClick={() => {
+        const date = prompt(
+          `📅 POD Received Date for Trip ${item.tripNo} (Vehicle: ${item.vehicleNo})\n\nFormat: YYYY-MM-DD (e.g., 2026-09-24)`,
+          new Date().toISOString().slice(0, 10)
+        );
+        if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          updatePodReceived(item, date);
+        } else if (date) {
+          alert("❌ Sahi date format daalein: YYYY-MM-DD");
+        }
+      }}
+      style={{
+        padding: '4px 12px',
+        background: '#c62828',
+        color: 'white',
+        border: 'none',
+        borderRadius: '6px',
+        fontSize: '11px',
+        cursor: 'pointer',
+        fontWeight: 'bold'
+      }}
+    >
+      ⏳ POD Pending
+    </button>
+  )}
+</td>
+
+<td>
+  <button
+    className="editBtn"
+    onClick={() =>
+      editTrip(item)
+    }
+  >
+    EDIT
+  </button>
 
                         <button
                           className="printBtn"
@@ -4140,7 +4251,18 @@ Thank You`;
     alert("Please select a Trip first.");
     return;
   }
-
+// 🔥 NAYA: POD RECEIVED CHECK
+  if (!lhbTrip.podReceived) {
+    const proceed = window.confirm(
+      `⚠️ POD NOT RECEIVED!\n\n` +
+      `Trip: ${lhbTrip.tripNo}\n` +
+      `Vehicle: ${lhbTrip.vehicleNo}\n\n` +
+      `Is trip ki POD abhi receive nahi hui hai.\n\n` +
+      `Kya aap still balance pay karna chahte hain?`
+    );
+    
+    if (!proceed) return;
+  }
   // =====================================================
   // 🔥 DUPLICATE CHECK
   // =====================================================
@@ -4249,6 +4371,7 @@ Thank You`;
                 <th>Broker / Owner</th>
                 <th>Lorry Freight</th>
                 <th>Advance</th>
+                    <th>POD Status</th>
                 <th>Status</th>
                 <th>Action</th>
               </tr>
@@ -4279,14 +4402,44 @@ Thank You`;
   <td>₹{money(item._totalLorryFreight || item.lorryFreight)}</td>
   <td>₹{money(item._totalAdvance || item.advance)}</td>
   <td>{item.status}</td>
-                    <td>
-                      <button
-                        className="blueBtn"
-                        onClick={() => handleSelectTrip(item.id)}
-                      >
-                        💰 BALANCE
-                      </button>
-                    </td>
+
+{/* 🔥 NAYA: POD STATUS COLUMN */}
+<td style={{ textAlign: 'center' }}>
+  {item.podReceived ? (
+    <span style={{ 
+      background: '#e8f5e9', 
+      color: '#16855b', 
+      padding: '3px 10px', 
+      borderRadius: '12px',
+      fontSize: '11px',
+      fontWeight: 'bold',
+      whiteSpace: 'nowrap'
+    }}>
+      ✅ {formatDate(item.podReceivedDate)}
+    </span>
+  ) : (
+    <span style={{ 
+      background: '#ffebee', 
+      color: '#c62828', 
+      padding: '3px 10px', 
+      borderRadius: '12px',
+      fontSize: '11px',
+      fontWeight: 'bold',
+      whiteSpace: 'nowrap'
+    }}>
+      ⏳ POD Pending
+    </span>
+  )}
+</td>
+
+<td>
+  <button
+    className="blueBtn"
+    onClick={() => handleSelectTrip(item.id)}
+  >
+    💰 BALANCE
+  </button>
+</td>
                   </tr>
                 );
               })}
