@@ -9000,7 +9000,7 @@ const pendingBilties = bilties.filter((item) => {
             OUTSTANDING CUSTOMER REPORT (BILL BASED)
         ===================================================== */}
 
-        {reportType === "OUTSTANDING" && (
+              {reportType === "OUTSTANDING" && (
           <div className="card" style={{ padding: '20px' }}>
             <div className="listHeader">
               <div>
@@ -9017,7 +9017,7 @@ const pendingBilties = bilties.filter((item) => {
                     <th style={{ textAlign: 'left' }}>Bill No.</th>
                     <th style={{ textAlign: 'left' }}>Bilty No.</th>
                     <th style={{ textAlign: 'left' }}>Bill Date</th>
-                    <th style={{ textAlign: 'left' }}>Submission Date</th>
+                    <th style={{ textAlign: 'left' }}>Bill Submission Date</th>
                     <th>0-30 Days</th>
                     <th>30-60 Days</th>
                     <th>60-120 Days</th>
@@ -9030,7 +9030,7 @@ const pendingBilties = bilties.filter((item) => {
                 <tbody>
                   {outstandingRows.length > 0 ? (
                     outstandingRows.map((row, index) => (
-                      <>
+                      <React.Fragment key={index}>
                         <tr style={{ background: '#f0f8ff', fontWeight: 'bold' }}>
                           <td colSpan="4">{row.customer}</td>
                           <td style={{ textAlign: 'center' }}>₹{money(row.totals["0-30"])}</td>
@@ -9048,7 +9048,11 @@ const pendingBilties = bilties.filter((item) => {
                             <td>{bill.billNo}</td>
                             <td>{bill.biltyNo}</td>
                             <td>{formatDate(bill.date)}</td>
-                            <td>{bill.submissionDate ? formatDate(bill.submissionDate) : "-"}</td>
+                            <td style={{ textAlign: 'center', color: bill.submissionDate !== "-" ? '#16855b' : '#999' }}>
+                              {bill.submissionDate && bill.submissionDate !== "-" 
+                                ? formatDate(bill.submissionDate) 
+                                : "-"}
+                            </td>
                             <td style={{ textAlign: 'center' }}>
                               {bill.ageBucket === "0-30" ? `₹${money(bill.pending)}` : "-"}
                             </td>
@@ -9066,17 +9070,57 @@ const pendingBilties = bilties.filter((item) => {
                             </td>
                             <td style={{ textAlign: 'center', fontWeight: 'bold' }}>₹{money(bill.pending)}</td>
                             <td>
-                              {bill.submissionDate && bill.submissionDate !== "-" 
-                                ? formatDate(bill.submissionDate) 
-                                : "-"}
+                              <button
+                                className="printBtn"
+                                onClick={() => {
+                                  const printWindow = window.open('', '_blank', 'width=800,height=600');
+                                  if (!printWindow) {
+                                    alert("Popup blocked! Please allow popups.");
+                                    return;
+                                  }
+                                  printWindow.document.write(`
+                                    <html>
+                                      <head>
+                                        <title>Bill Print - ${bill.billNo || "-"}</title>
+                                        <style>
+                                          body { font-family: Arial, sans-serif; margin: 30px; }
+                                          h2 { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; }
+                                          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                                          th, td { border: 1px solid #000; padding: 10px; text-align: left; }
+                                          th { background: #f0f0f0; }
+                                          .right { text-align: right; }
+                                        </style>
+                                      </head>
+                                      <body>
+                                        <h2>Outstanding Bill Report</h2>
+                                        <table>
+                                          <tr><th>Bill No:</th><td>${bill.billNo || "-"}</td></tr>
+                                          <tr><th>Bilty No:</th><td>${bill.biltyNo || "-"}</td></tr>
+                                          <tr><th>Date:</th><td>${formatDate(bill.date)}</td></tr>
+                                          <tr><th>Party Name:</th><td>${bill.partyName}</td></tr>
+                                          <tr><th>Bill Type:</th><td>${bill.billType}</td></tr>
+                                          <tr><th>Total Amount:</th><td class="right">₹${money(bill.total)}</td></tr>
+                                          <tr><th>Received:</th><td class="right">₹${money(bill.received)}</td></tr>
+                                          <tr><th style="background:#c62828; color:white;">Pending Amount:</th><td class="right" style="background:#c62828; color:white; font-weight:bold;">₹${money(bill.pending)}</td></tr>
+                                        </table>
+                                      </body>
+                                    </html>
+                                  `);
+                                  printWindow.document.close();
+                                  printWindow.focus();
+                                  printWindow.print();
+                                }}
+                              >
+                                🖨️ PRINT
+                              </button>
                             </td>
                           </tr>
                         ))}
-                      </>
+                      </React.Fragment>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="11" style={{ textAlign: 'center', padding: '20px' }}>
+                      <td colSpan="12" style={{ textAlign: 'center', padding: '20px' }}>
                         ✅ Sabhi customers ka bill clear hai. Koi outstanding nahi hai.
                       </td>
                     </tr>
