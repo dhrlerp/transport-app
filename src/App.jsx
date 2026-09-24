@@ -9386,54 +9386,11 @@ const pendingBilties = bilties.filter((item) => {
                             <td style={{ textAlign: 'center' }}>
                               {bill.ageBucket === "180+" ? `₹${money(bill.pending)}` : "-"}
                             </td>
-                            <td style={{ textAlign: 'center', fontWeight: 'bold' }}>₹{money(bill.pending)}</td>
+                                                       <td style={{ textAlign: 'center', fontWeight: 'bold' }}>₹{money(bill.pending)}</td>
                             <td>
-                              {/* Bill Print Button */}
-                              <button
-                                className="printBtn"
-                                onClick={() => {
-                                  const printWindow = window.open('', '_blank', 'width=800,height=600');
-                                  if (!printWindow) {
-                                    alert("Popup blocked! Please allow popups.");
-                                    return;
-                                  }
-
-                                  printWindow.document.write(`
-                                    <html>
-                                      <head>
-                                        <title>Bill Print - ${bill.billNo || bill.biltyNo}</title>
-                                        <style>
-                                          body { font-family: Arial, sans-serif; margin: 30px; }
-                                          h2 { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; }
-                                          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                                          th, td { border: 1px solid #000; padding: 10px; text-align: left; }
-                                          th { background: #f0f0f0; }
-                                          .right { text-align: right; }
-                                        </style>
-                                      </head>
-                                      <body>
-                                        <h2>Outstanding Bill Report</h2>
-                                        <table>
-                                          <tr><th>Bill No:</th><td>${bill.billNo || "-"}</td></tr>
-                                          <tr><th>Bilty No:</th><td>${bill.biltyNo || "-"}</td></tr>
-                                          <tr><th>Date:</th><td>${formatDate(bill.date)}</td></tr>
-                                          <tr><th>Consignor:</th><td>${bill.consignor}</td></tr>
-                                          <tr><th>Consignee:</th><td>${bill.consignee}</td></tr>
-                                          <tr><th>Vehicle:</th><td>${bill.vehicle}</td></tr>
-                                          <tr><th>Total Freight:</th><td class="right">₹${money(bill.freight)}</td></tr>
-                                          <tr><th>Received:</th><td class="right">₹${money(bill.received)}</td></tr>
-                                          <tr><th style="background:#c62828; color:white;">Pending Amount:</th><td class="right" style="background:#c62828; color:white; font-weight:bold;">₹${money(bill.pending)}</td></tr>
-                                        </table>
-                                      </body>
-                                    </html>
-                                  `);
-                                  printWindow.document.close();
-                                  printWindow.focus();
-                                  printWindow.print();
-                                }}
-                              >
-                                🖨️ PRINT
-                              </button>
+                              {bill.submissionDate && bill.submissionDate !== "-" 
+                                ? formatDate(bill.submissionDate) 
+                                : "-"}
                             </td>
                           </tr>
                         ))}
