@@ -208,6 +208,12 @@ function getNextNumber(items, field, prefix) {
 
 function App() {
   const [page, setPage] = useState("dashboard");
+// =========================================================
+// BILL SUBMISSION STATE
+// =========================================================
+const [submissionSearch, setSubmissionSearch] = useState("");
+const [editingSubmission, setEditingSubmission] = useState({});
+
   const [userRole, setUserRole] = useState("STAFF");
     // =========================================================
   // LOGIN STATE
@@ -8063,7 +8069,229 @@ const importBillsFromExcel = (e) => {
   };
   reader.readAsArrayBuffer(file);
 };
+// =========================================================
+// BILL SUBMISSION PAGE
+// =========================================================
+const renderBillSubmissionPage = () => {
+  // 🔥 SIRF WAHI BILLS DIKHAO JINKI SUBMISSION DATE NAHI HAI
+  const pendingSubmissionBills = bills.filter((bill) => {
+    // Search filter
+    if (submissionSearch.trim()) {
+      const term = submissionSearch.toLowerCase();
+      const searchText = `
+        ${bill.billNo || ""}
+        ${bill.partyName || ""}
+        ${bill.date || ""}
+        ${bill.remarks || ""}
+      `.toLowerCase();
+      if (!searchText.includes(term)) return false;
+    }
 
+    // 🔥 Submission Date check karo (remarks se ya alag field se)
+    const remarks = String(bill.remarks || "");
+    const hasSubmissionDate = remarks.includes("Submission:");
+
+    return !hasSubmissionDate;
+  });
+
+  // 🔥 SUBMISSION DATE UPDATE FUNCTION
+  const handleUpdateSubmissionDate = async (bill, submissionDate) => {
+    if (!submissionDate) {
+      alert("Please submission date select karein.");
+      return;
+    }
+
+    try {
+      // Purane remarks se "Submission: ..." hatado
+      let oldRemarks = String(bill.remarks || "");
+      oldRemarks = oldRemarks.replace(/\s*\|\s*Submission:\s*\d{4}-\d{2}-\d{2}/g, "");
+      oldRemarks = oldRemarks.replace(/Submission:\s*\d{4}-\d{2}-\d{2}\s*\|?\s*/g, "");
+
+      // Naye remarks banao
+      const newRemarks = oldRemarks.trim()
+        ? `${oldRemarks.trim()} | Submission: ${submissionDate}`
+        : `Submission: ${submissionDate}`;
+
+      const { error } = await supabase
+        .from('bills')
+        .update({ remarks: newRemarks })
+        .eq('id', bill.id);
+
+      if (error) throw error;
+
+      alert(`✅ ${bill.billNo} ki submission date update ho gayi: ${formatDate(submissionDate)}`);
+      
+      // Editing state clear karo
+      setEditingSubmission(prev => {
+        const updated = { ...prev };
+        delete updated[bill.id];
+        return updated;
+      });
+
+      await loadAllData();
+    } catch (e) {
+      alert("❌ Error: " + e.message);
+    }
+  };
+
+  return (
+    <>
+      {/* PAGE HEADER */}
+      <div className="pageTitle" style={{
+        background: 'linear-gradient(135deg, #102a43 0%, #1a3a5c 100%)',
+        padding: '25px 30px',
+        borderRadius: '10px',
+        color: 'white',
+        marginBottom: '25px'
+      }}>
+        <div>
+          <h2 style={{ color: 'white', margin: 0, fontSize: '24px' }}>📤 Bill Submission</h2>
+          <p style={{ color: '#b8d4e8', margin: '5px 0 0', fontSize: '13px' }}>
+            Bills ki submission date update karein — update ke baad list se hat jayegi
+          </p>
+        </div>
+      </div>
+
+      {/* STATS */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: '16px',
+        marginBottom: '25px'
+      }}>
+        <div className="dashboardCard" style={{ padding: '18px 20px', background: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ fontSize: '28px' }}>⏳</div>
+            <div>
+              <div style={{ fontSize: '22px', fontWeight: '700', color: '#c62828' }}>{pendingSubmissionBills.length}</div>
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>Pending Submission</div>
+            </div>
+          </div>
+        </div>
+        <div className="dashboardCard" style={{ padding: '18px 20px', background: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ fontSize: '28px' }}>📋</div>
+            <div>
+              <div style={{ fontSize: '22px', fontWeight: '700', color: '#1769aa' }}>{bills.length}</div>
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>Total Bills</div>
+            </div>
+          </div>
+        </div>
+        <div className="dashboardCard" style={{ padding: '18px 20px', background: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ fontSize: '28px' }}>✅</div>
+            <div>
+              <div style={{ fontSize: '22px', fontWeight: '700', color: '#16855b' }}>{bills.length - pendingSubmissionBills.length}</div>
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>Submitted</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SEARCH */}
+      <div className="card" style={{ padding: '20px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <input
+            type="text"
+            value={submissionSearch}
+            onChange={(e) => setSubmissionSearch(e.target.value)}
+            placeholder="🔍 Search Bill No. / Party Name..."
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              fontSize: '15px',
+              border: '2px solid #dfe6ed',
+              borderRadius: '8px',
+              outline: 'none'
+            }}
+          />
+          <button
+            className="grayBtn"
+            onClick={() => setSubmissionSearch("")}
+            style={{ padding: '12px 20px' }}
+          >
+            🔄 Reset
+          </button>
+        </div>
+      </div>
+
+      {/* BILLS LIST */}
+      <div className="card">
+        <div className="listHeader">
+          <div>
+            <h2>Pending Submission Bills</h2>
+            <p>Total: {pendingSubmissionBills.length}</p>
+          </div>
+        </div>
+
+        <div className="tableWrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Bill Date</th>
+                <th>Bill Number</th>
+                <th>Party Name</th>
+                <th>Submission Date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingSubmissionBills.length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '10px' }}>✅</div>
+                    <h3 style={{ color: '#16855b', margin: '0 0 5px 0' }}>All Bills Submitted!</h3>
+                    <p style={{ color: '#666', margin: 0 }}>Saari bills ki submission date update ho chuki hai.</p>
+                  </td>
+                </tr>
+              ) : (
+                pendingSubmissionBills.map((bill, index) => (
+                  <tr key={bill.id}>
+                    <td>{index + 1}</td>
+                    <td>{formatDate(bill.date)}</td>
+                    <td><strong>{bill.billNo}</strong></td>
+                    <td>{bill.partyName}</td>
+                    <td>
+                      <input
+                        type="date"
+                        value={editingSubmission[bill.id] || ""}
+                        onChange={(e) => 
+                          setEditingSubmission(prev => ({
+                            ...prev,
+                            [bill.id]: e.target.value
+                          }))
+                        }
+                        style={{
+                          padding: '8px 12px',
+                          border: '1px solid #ccc',
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          width: '100%'
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <button
+                        className="greenBtn"
+                        onClick={() => 
+                          handleUpdateSubmissionDate(bill, editingSubmission[bill.id])
+                        }
+                        style={{ padding: '8px 16px', fontSize: '12px' }}
+                      >
+                        ✅ UPDATE
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+};
   // =========================================================
   // BILL PAGE
   // =========================================================
@@ -8676,17 +8904,26 @@ const importBillsFromExcel = (e) => {
             totals["Total"] += pending;
 
             // Bill details
-            billRows.push({
-              billNo: b.billNo || "-",
-              biltyNo: b.biltyNo || "-",
-              date: b.date,
-              ageBucket: ageBucket,
-              pending: pending,
-              partyName: b.partyName,
-              billType: b.billType || "TAX INVOICE",
-              total: amount,
-              received: received
-            });
+           // 🔥 SUBMISSION DATE NIKALO
+let submissionDate = "-";
+const billRemarks = String(b.remarks || "");
+const submissionMatch = billRemarks.match(/Submission:\s*(\d{4}-\d{2}-\d{2})/);
+if (submissionMatch) {
+  submissionDate = submissionMatch[1];
+}
+
+billRows.push({
+  billNo: b.billNo || "-",
+  biltyNo: b.biltyNo || "-",
+  date: b.date,
+  ageBucket: ageBucket,
+  pending: pending,
+  partyName: b.partyName,
+  billType: b.billType || "TAX INVOICE",
+  total: amount,
+  received: received,
+  submissionDate: submissionDate
+});
           }
         });
         return { customer: custName, totals, billRows };
@@ -8780,6 +9017,7 @@ const pendingBilties = bilties.filter((item) => {
                     <th style={{ textAlign: 'left' }}>Bill No.</th>
                     <th style={{ textAlign: 'left' }}>Bilty No.</th>
                     <th style={{ textAlign: 'left' }}>Bill Date</th>
+                    <th style={{ textAlign: 'left' }}>Submission Date</th>
                     <th>0-30 Days</th>
                     <th>30-60 Days</th>
                     <th>60-120 Days</th>
@@ -8810,6 +9048,7 @@ const pendingBilties = bilties.filter((item) => {
                             <td>{bill.billNo}</td>
                             <td>{bill.biltyNo}</td>
                             <td>{formatDate(bill.date)}</td>
+                            <td>{bill.submissionDate ? formatDate(bill.submissionDate) : "-"}</td>
                             <td style={{ textAlign: 'center' }}>
                               {bill.ageBucket === "0-30" ? `₹${money(bill.pending)}` : "-"}
                             </td>
@@ -14397,6 +14636,7 @@ const exportToExcel = (data, filename, headers) => {
   <button onClick={() => setPage("lhb")}>💰 Lorry Hire Balance</button>
   <button onClick={() => setPage("accounts")}>💰 Accounts</button>
   <button onClick={() => setPage("bills")}>🧾 Bills / Invoice</button>
+  <button onClick={() => setPage("billSubmission")}>📤 Bill Submission</button>
   <button onClick={() => setPage("reports")}>📊 Reports</button>
   <button onClick={() => setPage("tracking")}>📦 Consignment Tracking</button>
   <button onClick={() => setPage("dailyTracking")}>🚚 Daily Tracking</button>  {/* 🔥 YEH ADD KARO */}
@@ -14413,6 +14653,7 @@ const exportToExcel = (data, filename, headers) => {
   {page === "lhb" && renderLHBalancePage()}
   {page === "accounts" && renderAccountsPage()}
   {page === "bills" && renderBillPage()}
+  {page === "billSubmission" && renderBillSubmissionPage()}
   {page === "reports" && renderReportsPage()}
   {page === "tracking" && renderTrackingPage()}
     {page === "dailyTracking" && renderDailyTrackingPage()}
