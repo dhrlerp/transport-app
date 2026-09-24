@@ -2168,6 +2168,51 @@ let selectedBilties = Array.isArray(item.selectedBilties)
   };
 
   // =========================================================
+// 🔥 EDIT VEHICLE FUNCTION
+// =========================================================
+const editVehicle = (vehicle) => {
+  console.log("✏️ EDIT VEHICLE CALLED:", vehicle);
+  
+  setVehicleForm({
+    ...emptyVehicle,
+    ...vehicle,
+    vehicleNo: vehicle.vehicleNo || "",
+    ownerName: vehicle.ownerName || "",
+    vehicleType: vehicle.vehicleType || "",
+    capacity: vehicle.capacity || "",
+    driverName: vehicle.driverName || "",
+    driverMobile: vehicle.driverMobile || "",
+    rcNo: vehicle.rcNo || "",
+    insuranceExpiry: vehicle.insuranceExpiry || "",
+    fitnessExpiry: vehicle.fitnessExpiry || "",
+    permitExpiry: vehicle.permitExpiry || "",
+    pucExpiry: vehicle.pucExpiry || "",
+    status: vehicle.status || "Active",
+  });
+  
+  setEditingVehicle(vehicle.id);
+  setPage("vehicles");
+  goTop();
+};
+
+// =========================================================
+// 🔥 DELETE VEHICLE FUNCTION
+// =========================================================
+const deleteVehicle = async (id) => {
+  if (!window.confirm("Kya aap is vehicle ko delete karna chahte hain?")) return;
+  
+  try {
+    const { error } = await supabase.from('vehicles').delete().eq('id', id);
+    
+    if (error) throw error;
+    
+    alert("✅ Vehicle deleted successfully!");
+    await loadAllData();
+  } catch (e) {
+    alert("❌ Error: " + e.message);
+  }
+};
+  // =========================================================
   // VEHICLE PAGE
   // =========================================================
 
