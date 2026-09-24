@@ -7917,6 +7917,153 @@ Thank You`;
       </>
     );
   };
+
+  // =========================================================
+// 🔥 BULK IMPORT BILLS FROM EXCEL (LEDGER FORMAT)
+// =========================================================
+const importBillsFromExcel = (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (event) => {
+    try {
+      const data = new Uint8Array(event.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet);
+
+      if (rows.length === 0) {
+        alert("❌ Excel file mein koi data nahi hai.");
+        return;
+      }
+
+      if (!window.confirm(`${rows.length} bills import karne hain?`)) {
+        e.target.value = "";
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors = [];
+
+      for (const row of rows) {
+        try {
+          const parseDate = (dateVal) => {
+            if (!dateVal) return new Date().toISOString().slice(0, 10);
+            
+            if (typeof dateVal === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateVal)) {
+              return dateVal.slice(0, 10);
+            }
+            
+            if (typeof dateVal === 'number') {
+              const excelDate = new Date((dateVal - 25569) * 86400 * 1000);
+              return excelDate.toISOString().slice(0, 10);
+            }
+            
+            if (typeof dateVal === 'string' && /^\d{2}-\d{2}-\d{4}$/.test(dateVal)) {
+              const [dd, mm, yyyy] = dateVal.split('-');
+              return `${yyyy}-${mm}-${dd}`;
+            }
+            
+            const d = new Date(dateVal);
+            if (!isNaN(d.getTime())) {
+              return d.toISOString().slice(0, 10);
+            }
+            
+            return new Date().toISOString().slice(0, 10);
+          };
+
+          const billNo = String(row["Ref. No."] || "").trim();
+          const partyName = String(row["Party Name"] || "").trim();
+          const amount = Number(row["Amount"] || row["Pending"] || 0);
+          const pending = Number(row["Pending"] || amount || 0);
+          const overdueDays = Number(row["Overdue Days"] || 0);
+          const billDate = parseDate(row["Date"]);
+          const submissionDate = parseDate(row["Bill Submission Date"] || row["Date"]);
+
+          if (!billNo) {
+            errorCount++;
+            errors.push(`Row missing Ref. No.`);
+            continue;
+          }
+
+          if (!partyName) {
+            errorCount++;
+            errors.push(`${billNo}: Party Name missing`);
+            continue;
+          }
+
+          const existing = bills.find(
+            b => String(b.billNo || "").trim().toUpperCase() === billNo.toUpperCase() &&
+                 String(b.partyName || "").trim().toUpperCase() === partyName.toUpperCase()
+          );
+          
+          if (existing) {
+            errorCount++;
+            errors.push(`${billNo} already exists`);
+            continue;
+          }
+
+          const billData = {
+            billNo: billNo,
+            date: billDate,
+            partyName: partyName,
+            partyGST: "",
+            partyAddress: "",
+            billType: "TAX INVOICE",
+            vchNo: billNo,
+            biltyNo: "",
+            items: [{
+              id: Date.now() + Math.random(),
+              description: `Freight Charges - ${billNo}`,
+              subDescription: "",
+              hsn: "996519",
+              date: billDate,
+              cnNo: "",
+              lorryNo: "",
+              quantity: "1",
+              actualWeight: "0",
+              chargeWeight: "0",
+              rate: String(amount),
+              amount: String(amount),
+            }],
+            subtotal: String(amount),
+            cgst: "0",
+            sgst: "0",
+            total: String(amount),
+            igstRate: "5",
+            remarks: `Imported from ledger | Pending: ₹${pending} | Overdue: ${overdueDays} days | Submission: ${submissionDate}`,
+            createdAt: new Date().toISOString()
+          };
+
+          const { error } = await supabase.from('bills').insert([billData]);
+          if (error) throw error;
+          successCount++;
+          
+        } catch (err) {
+          errorCount++;
+          errors.push(`${row["Ref. No."] || "Unknown"}: ${err.message}`);
+        }
+      }
+
+      alert(
+        `✅ Import Complete!\n\n` +
+        `✅ Success: ${successCount}\n` +
+        `❌ Failed: ${errorCount}\n\n` +
+        (errors.length > 0 ? `First 5 errors:\n${errors.slice(0, 5).join('\n')}` : "")
+      );
+
+      await loadAllData();
+      e.target.value = "";
+    } catch (err) {
+      console.error("Import error:", err);
+      alert("❌ Excel read error: " + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+};
+
   // =========================================================
   // BILL PAGE
   // =========================================================
@@ -8248,18 +8395,42 @@ Thank You`;
           </div>
         </div>
 
-        <div className="card">
+                <div className="card">
           <div className="listHeader">
             <div>
               <h2>Bill / Invoice List</h2>
               <p>Total: {bills.length}</p>
             </div>
-            <input
-              className="search"
-              placeholder="Search Bill / Party..."
-              value={billSearch}
-              onChange={(e) => setBillSearch(e.target.value)}
-            />
+            
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <input
+                className="search"
+                placeholder="Search Bill / Party..."
+                value={billSearch}
+                onChange={(e) => setBillSearch(e.target.value)}
+              />
+              
+              {/* 🔥 IMPORT TALLY BUTTON */}
+              <label 
+                className="blueBtn" 
+                style={{ 
+                  padding: '10px 18px', 
+                  cursor: 'pointer', 
+                  whiteSpace: 'nowrap',
+                  display: 'inline-block',
+                  background: '#16855b',
+                  color: 'white'
+                }}
+              >
+                📥 IMPORT TALLY
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={importBillsFromExcel}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
           </div>
 
           <div className="tableWrapper">
