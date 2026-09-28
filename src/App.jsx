@@ -1,11 +1,17 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
-import { createClient } from '@supabase/supabase-js'; // Yeh import karo
+import { createClient } from '@supabase/supabase-js';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const supabaseUrl = 'https://oxnmkgmuerxtzcdhsbuc.supabase.co';
 const supabaseKey = 'sb_publishable_T_-uBi1pVO3pB4Oi0a5L1Q_2XOftjCI';
 const supabase = createClient(supabaseUrl, supabaseKey);
 import * as XLSX from "xlsx";
 import "./App.css";
+
+
+// 🔥 Digital Signature
+const SIGNATURE_NAME = "Gautam Sharma";
 
 const COMPANY = {
   name: "Delhi Hyderabad Road Lines",
@@ -361,6 +367,16 @@ const [accounts, setAccounts] = useState([]);
   const [editingBill, setEditingBill] = useState(null);
   const [billSearch, setBillSearch] = useState("");
   const [printBill, setPrintBill] = useState(null);
+
+  // =========================================================
+// 🔥 EMAIL BILL STATE
+// =========================================================
+const [selectedBillsForEmail, setSelectedBillsForEmail] = useState([]);
+const [showEmailModal, setShowEmailModal] = useState(false);
+const [emailRecipients, setEmailRecipients] = useState([""]);
+const [emailSubject, setEmailSubject] = useState("");
+const [emailBody, setEmailBody] = useState("");
+const [emailSending, setEmailSending] = useState(false);
 
   // =========================================================
 // POD / DELIVERY MANAGEMENT - STATES
@@ -808,6 +824,323 @@ if (trackingData) setTrackingVehicles(trackingData);
     } catch (e) { alert("❌ Error: " + e.message); }
   };
 
+  // =========================================================
+// 🔥 GENERATE PROFESSIONAL PDF BILL WITH DIGITAL SIGNATURE
+// =========================================================
+const generateBillPDF = (bill) => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  let yPos = 15;
+
+  // ===== HEADER =====
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(16, 42, 67);
+  doc.text(COMPANY.name, pageWidth / 2, yPos, { align: 'center' });
+  yPos += 7;
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(80, 80, 80);
+  doc.text(COMPANY.address, pageWidth / 2, yPos, { align: 'center' });
+  yPos += 5;
+  doc.text(`Mobile: ${COMPANY.mobile}`, pageWidth / 2, yPos, { align: 'center' });
+  yPos += 5;
+  doc.text(`GSTIN/UIN: ${COMPANY.gst} | State: ${COMPANY.state}, Code: ${COMPANY.code}`, pageWidth / 2, yPos, { align: 'center' });
+  yPos += 5;
+  doc.text(`E-Mail: ${COMPANY.email}`, pageWidth / 2, yPos, { align: 'center' });
+  yPos += 4;
+
+  // Line
+  doc.setDrawColor(16, 42, 67);
+  doc.setLineWidth(0.8);
+  doc.line(10, yPos, pageWidth - 10, yPos);
+  yPos += 3;
+
+  // Title
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(16, 42, 67);
+  doc.text(bill.billType || "TAX INVOICE", pageWidth / 2, yPos, { align: 'center' });
+  yPos += 8;
+
+  // ===== INVOICE NO & DATE =====
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.3);
+  doc.rect(10, yPos, pageWidth - 20, 8);
+
+  doc.text(`Invoice No.: ${bill.billNo || "-"}`, 12, yPos + 5.5);
+  doc.text(`Date: ${formatDate(bill.date)}`, pageWidth - 12, yPos + 5.5, { align: 'right' });
+  yPos += 10;
+
+  // ===== BUYER DETAILS =====
+  doc.setFillColor(240, 248, 255);
+  doc.rect(10, yPos, pageWidth - 20, 28, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(16, 42, 67);
+  doc.text("BILL TO:", 12, yPos + 6);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(0, 0, 0);
+  doc.text(bill.partyName || "-", 12, yPos + 12);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  const addressLines = doc.splitTextToSize(bill.partyAddress || "-", pageWidth - 25);
+  doc.text(addressLines.slice(0, 2), 12, yPos + 17);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(`GSTIN: ${bill.partyGST || "-"}`, 12, yPos + 25);
+  yPos += 32;
+
+  // ===== ITEMS TABLE =====
+  const tableData = bill.items.map((item, idx) => [
+    (idx + 1).toString(),
+    item.description || "-",
+    item.date ? formatDate(item.date) : formatDate(bill.date),
+    item.cnNo || bill.biltyNo || "-",
+    item.lorryNo || "-",
+    item.actualWeight || "-",
+    item.chargeWeight || "-",
+    `₹${money(item.rate || 0)}`,
+    `₹${money(item.amount || 0)}`
+  ]);
+
+  const totalAmount = bill.items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+  const igstRate = bill.igstRate || 5;
+  const igstAmount = (totalAmount * igstRate) / 100;
+  const grandTotal = totalAmount + igstAmount;
+
+  doc.autoTable({
+    startY: yPos,
+    head: [['#', 'Description', 'Date', 'C.N. No.', 'Lorry No.', 'Act. Wt', 'Chg. Wt', 'Rate', 'Amount']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [16, 42, 67],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 9,
+      halign: 'center'
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: [0, 0, 0]
+    },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 8 },
+      1: { cellWidth: 45 },
+      2: { halign: 'center', cellWidth: 18 },
+      3: { halign: 'center', cellWidth: 22 },
+      4: { halign: 'center', cellWidth: 22 },
+      5: { halign: 'center', cellWidth: 15 },
+      6: { halign: 'center', cellWidth: 15 },
+      7: { halign: 'right', cellWidth: 18 },
+      8: { halign: 'right', cellWidth: 22 }
+    },
+    margin: { left: 10, right: 10 }
+  });
+
+  yPos = doc.lastAutoTable.finalY + 5;
+
+  // ===== TOTALS =====
+  const totalsX = pageWidth - 80;
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  doc.text("Subtotal:", totalsX, yPos);
+  doc.text(`₹${money(totalAmount)}`, pageWidth - 12, yPos, { align: 'right' });
+  yPos += 5;
+
+  doc.text(`IGST ${igstRate}%:`, totalsX, yPos);
+  doc.text(`₹${money(igstAmount)}`, pageWidth - 12, yPos, { align: 'right' });
+  yPos += 6;
+
+  doc.setFillColor(16, 42, 67);
+  doc.rect(totalsX - 2, yPos - 4, 75, 8, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text("GRAND TOTAL:", totalsX, yPos + 1);
+  doc.text(`₹${money(grandTotal)}`, pageWidth - 12, yPos + 1, { align: 'right' });
+  yPos += 12;
+
+  // ===== DIGITAL SIGNATURE =====
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.3);
+  doc.setTextColor(0, 0, 0);
+
+  // Digital signature styled name
+  doc.setFont('helvetica', 'bolditalic');
+  doc.setFontSize(16);
+  doc.setTextColor(0, 51, 153);
+  doc.text(SIGNATURE_NAME, pageWidth - 65, pageHeight - 40);
+
+  // Signature line
+  doc.setDrawColor(0, 51, 153);
+  doc.setLineWidth(0.5);
+  doc.line(pageWidth - 70, pageHeight - 36, pageWidth - 15, pageHeight - 36);
+
+  // "Digitally Signed" text
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(0, 128, 0);
+  doc.text("✓ Digitally Signed", pageWidth - 65, pageHeight - 32);
+
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`For ${COMPANY.name}`, pageWidth - 65, pageHeight - 27);
+
+  // Footer
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7);
+  doc.setTextColor(120, 120, 120);
+  doc.text("This is a computer generated invoice with digital signature.", pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+  // Return as blob
+  const pdfBlob = doc.output('blob');
+  return pdfBlob;
+};
+
+// =========================================================
+// 🔥 BLOB TO BASE64
+// =========================================================
+const blobToBase64 = (blob) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
+// =========================================================
+// 🔥 SEND BILLS EMAIL VIA SUPABASE EDGE FUNCTION
+// =========================================================
+const sendBillsEmail = async () => {
+  const validEmails = emailRecipients.filter(e => e.trim() && e.includes("@"));
+
+  if (selectedBillsForEmail.length === 0) {
+    alert("Please select at least one bill.");
+    return;
+  }
+  if (validEmails.length === 0) {
+    alert("Please enter at least one valid email address.");
+    return;
+  }
+
+  setEmailSending(true);
+
+  try {
+    const billsToSend = bills.filter(b => selectedBillsForEmail.includes(b.id));
+    const totalAmount = billsToSend.reduce(
+      (sum, b) => sum + Number(b.subtotal || b.total || 0),
+      0
+    );
+
+    const pdfAttachments = [];
+    for (const bill of billsToSend) {
+      const pdfBlob = generateBillPDF(bill);
+      const pdfBase64 = await blobToBase64(pdfBlob);
+
+      pdfAttachments.push({
+        filename: `${bill.billNo || "bill"}.pdf`,
+        content: pdfBase64,
+      });
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    const errors = [];
+
+    for (const recipient of validEmails) {
+      try {
+        const response = await fetch(
+          `${supabaseUrl}/functions/v1/send-bill-email`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${supabaseKey}`,
+            },
+            body: JSON.stringify({
+              to: recipient,
+              subject: emailSubject || `Invoice from ${COMPANY.name}`,
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+                  <div style="background: #102a43; color: white; padding: 20px; text-align: center;">
+                    <h2 style="margin: 0;">${COMPANY.name}</h2>
+                    <p style="margin: 5px 0 0; font-size: 13px;">Transport Management System</p>
+                  </div>
+                  <div style="padding: 25px 20px;">
+                    <p>${(emailBody || "").replace(/\n/g, "<br/>")}</p>
+                  </div>
+                  <div style="background: #f5f7fa; padding: 15px 20px; font-size: 12px; color: #666; border-top: 2px solid #102a43;">
+                    <strong>${COMPANY.name}</strong><br/>
+                    ${COMPANY.address}<br/>
+                    Mobile: ${COMPANY.mobile}<br/>
+                    GSTIN: ${COMPANY.gst}<br/>
+                    Email: ${COMPANY.email}
+                  </div>
+                </div>
+              `,
+              attachments: pdfAttachments,
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || data.message || "Email sending failed");
+        }
+
+        successCount++;
+        console.log(`✅ Email sent to: ${recipient}`, data);
+      } catch (err) {
+        failCount++;
+        errors.push(`${recipient}: ${err.message}`);
+        console.error(`❌ Failed for ${recipient}:`, err);
+      }
+    }
+
+    if (successCount > 0) {
+      alert(
+        `✅ Email sent successfully!\n\n` +
+        `📧 Recipients: ${successCount}\n` +
+        `📄 Bills Attached: ${billsToSend.length}\n` +
+        `💰 Total: ₹${money(totalAmount)}`
+      );
+      setShowEmailModal(false);
+      setSelectedBillsForEmail([]);
+      setEmailRecipients([""]);
+      setEmailSubject("");
+      setEmailBody("");
+    }
+
+    if (failCount > 0) {
+      alert(
+        `⚠️ ${failCount} email(s) failed:\n\n` +
+        errors.slice(0, 3).join("\n") +
+        (errors.length > 3 ? `\n...and ${errors.length - 3} more` : "")
+      );
+    }
+
+  } catch (e) {
+    console.error("Email error:", e);
+    alert("❌ Error: " + e.message);
+  }
+
+  setEmailSending(false);
+};
   const newBill = () => {
     setEditingBill(null);
     setBillForm({
@@ -8776,14 +9109,52 @@ const renderBillSubmissionPage = () => {
           </div>
         </div>
 
-                <div className="card">
+                       <div className="card">
           <div className="listHeader">
             <div>
               <h2>Bill / Invoice List</h2>
               <p>Total: {bills.length}</p>
+              {selectedBillsForEmail.length > 0 && (
+                <p style={{ color: '#1769aa', fontWeight: 'bold', marginTop: '5px' }}>
+                  ✅ {selectedBillsForEmail.length} bill(s) selected — Total ₹{money(
+                    bills.filter(b => selectedBillsForEmail.includes(b.id))
+                      .reduce((sum, b) => sum + Number(b.subtotal || b.total || 0), 0)
+                  )}
+                </p>
+              )}
             </div>
             
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              {selectedBillsForEmail.length > 0 && (
+                <button
+                  className="greenBtn"
+                  onClick={() => {
+                    // Common party का email auto-fill
+                    const selectedBillsData = bills.filter(b => selectedBillsForEmail.includes(b.id));
+                    const firstParty = selectedBillsData[0]?.partyName;
+                    const customer = customers.find(c => c.name === firstParty);
+                    setEmailRecipients([customer?.email || ""]);
+                    
+                    // Default subject & body
+                    setEmailSubject(`Invoice(s) from ${COMPANY.name}`);
+                    setEmailBody(
+                      `Dear ${firstParty || "Customer"},\n\n` +
+                      `Please find attached invoice(s).\n\n` +
+                      `Total Bills: ${selectedBillsForEmail.length}\n` +
+                      `Total Amount: ₹${money(
+                        selectedBillsData.reduce((sum, b) => sum + Number(b.subtotal || b.total || 0), 0)
+                      )}\n\n` +
+                      `Best Regards,\nGautam Sharma\n${COMPANY.name}\n${COMPANY.mobile}`
+                    );
+                    
+                    setShowEmailModal(true);
+                  }}
+                  style={{ padding: '10px 18px', background: '#16855b', color: 'white' }}
+                >
+                  📧 EMAIL {selectedBillsForEmail.length} BILL(S)
+                </button>
+              )}
+              
               <input
                 className="search"
                 placeholder="Search Bill / Party..."
@@ -8791,7 +9162,6 @@ const renderBillSubmissionPage = () => {
                 onChange={(e) => setBillSearch(e.target.value)}
               />
               
-              {/* 🔥 IMPORT TALLY BUTTON */}
               <label 
                 className="blueBtn" 
                 style={{ 
@@ -8816,8 +9186,22 @@ const renderBillSubmissionPage = () => {
 
           <div className="tableWrapper">
             <table>
-                            <thead>
+              <thead>
                 <tr>
+                  <th style={{ width: '40px' }}>
+                    <input
+                      type="checkbox"
+                      checked={filteredBills.length > 0 && filteredBills.every(b => selectedBillsForEmail.includes(b.id))}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedBillsForEmail(filteredBills.map(b => b.id));
+                        } else {
+                          setSelectedBillsForEmail([]);
+                        }
+                      }}
+                      style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                    />
+                  </th>
                   <th>Bill No.</th>
                   <th>Bilty No.</th>
                   <th>Vch No.</th>
@@ -8830,7 +9214,21 @@ const renderBillSubmissionPage = () => {
               </thead>
               <tbody>
                 {filteredBills.map(bill => (
-                                    <tr key={bill.id}>
+                  <tr key={bill.id} style={{ background: selectedBillsForEmail.includes(bill.id) ? '#e8f5e9' : 'transparent' }}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedBillsForEmail.includes(bill.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedBillsForEmail([...selectedBillsForEmail, bill.id]);
+                          } else {
+                            setSelectedBillsForEmail(selectedBillsForEmail.filter(id => id !== bill.id));
+                          }
+                        }}
+                        style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                      />
+                    </td>
                     <td><strong>{bill.billNo}</strong></td>
                     <td>{bill.biltyNo || "-"}</td>
                     <td>{bill.vchNo || "-"}</td>
@@ -8841,41 +9239,7 @@ const renderBillSubmissionPage = () => {
                     <td>
                       <button className="editBtn" onClick={() => editBill(bill)}>EDIT</button>
                       <button className="printBtn" onClick={() => setPrintBill(bill)}>PRINT</button>
-                      <button className="blueBtn" onClick={() => {
-  setBillForm({
-    ...createEmptyBill(),
-    partyName: item.consignor || "",
-    partyGST: item.consignorGST || "",
-    partyAddress: item.consignorAddress || "",
-    biltyNo: item.bilty,
-    date: item.date || new Date().toISOString().slice(0, 10),
-    items: [{
-      id: Date.now(),
-      description: `Lorry Freight - ${item.bilty}`,
-      subDescription: `${item.pickup || ""} to ${item.delivery || ""}`,
-      date: item.date || new Date().toISOString().slice(0, 10),
-      cnNo: item.bilty,
-      lorryNo: item.vehicle || "",
-      actualWeight: item.actualWeight || "",
-      chargeWeight: item.chargeWeight || "",
-      rate: Number(item.freight || 0),
-      amount: Number(item.freight || 0),
-      hsn: "996519"
-    }],
-    subtotal: Number(item.freight || 0),
-    cgst: 0,
-    sgst: 0,
-    total: Number(item.freight || 0),
-    igstRate: 5
-  });
-  setEditingBill(null);
-  setPage("bills");
-  goTop();
-}}>
-  ⚡ BILL
-</button>
                       <button className="deleteBtn" onClick={() => deleteBill(bill.id)}>DELETE</button>
-                    
                     </td>
                   </tr>
                 ))}
@@ -14952,8 +15316,175 @@ const exportToExcel = (data, filename, headers) => {
       {printPOD && renderPrintPOD()}
       {printMoneyReceipt &&
         renderPrintMoneyReceipt()}
-              {showBillGenerateModal && renderPendingBillModal()}
+                   {showBillGenerateModal && renderPendingBillModal()}
       {printBill && renderPrintBill()}
+
+      {/* ========================================================= */}
+      {/* EMAIL BILLS MODAL */}
+      {/* ========================================================= */}
+      {showEmailModal && (
+        <div className="printOverlay" onClick={() => !emailSending && setShowEmailModal(false)}>
+          <div
+            className="printDocument"
+            style={{
+              maxWidth: '600px',
+              margin: '50px auto',
+              padding: '30px',
+              background: 'white',
+              borderRadius: '12px',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ margin: '0 0 5px 0', color: '#102a43' }}>📧 Email Bills to Customer</h2>
+            <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>
+              {selectedBillsForEmail.length} bill(s) will be sent as PDF attachments
+            </p>
+
+            {/* Bill List Summary */}
+            <div style={{
+              background: '#f0f8ff',
+              padding: '12px',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              fontSize: '12px',
+              maxHeight: '120px',
+              overflowY: 'auto',
+              border: '1px solid #dfe6ed'
+            }}>
+              <strong style={{ color: '#102a43' }}>📄 Bills to send:</strong>
+              {bills.filter(b => selectedBillsForEmail.includes(b.id)).map(b => (
+                <div key={b.id} style={{ padding: '4px 0', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>• {b.billNo} — {b.partyName}</span>
+                  <strong>₹{money(b.subtotal || b.total)}</strong>
+                </div>
+              ))}
+            </div>
+
+            {/* Recipients */}
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px' }}>
+                📧 Recipient Email(s) *
+              </label>
+              {emailRecipients.map((email, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      const newRecipients = [...emailRecipients];
+                      newRecipients[idx] = e.target.value;
+                      setEmailRecipients(newRecipients);
+                    }}
+                    placeholder="customer@email.com"
+                    style={{
+                      flex: 1,
+                      padding: '10px 12px',
+                      border: '1px solid #ccc',
+                      borderRadius: '6px',
+                      fontSize: '14px'
+                    }}
+                  />
+                  {emailRecipients.length > 1 && (
+                    <button
+                      type="button"
+                      className="deleteBtn"
+                      onClick={() => {
+                        setEmailRecipients(emailRecipients.filter((_, i) => i !== idx));
+                      }}
+                      style={{ padding: '8px 12px' }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                className="blueBtn"
+                onClick={() => setEmailRecipients([...emailRecipients, ""])}
+                style={{ padding: '6px 14px', fontSize: '12px', marginTop: '5px' }}
+              >
+                + ADD ANOTHER EMAIL
+              </button>
+            </div>
+
+            {/* Subject */}
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>
+                Subject
+              </label>
+              <input
+                type="text"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #ccc',
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+
+            {/* Body */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>
+                Message
+              </label>
+              <textarea
+                value={emailBody}
+                onChange={(e) => setEmailBody(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1px solid #ccc',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  minHeight: '120px',
+                  resize: 'vertical',
+                  fontFamily: 'Arial, sans-serif'
+                }}
+              />
+            </div>
+
+            {/* Info */}
+            <div style={{
+              background: '#e8f5e9',
+              padding: '10px',
+              borderRadius: '6px',
+              marginBottom: '20px',
+              fontSize: '12px',
+              color: '#16855b'
+            }}>
+              ✅ {selectedBillsForEmail.length} PDF(s) will be attached automatically with digital signature
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                className="grayBtn"
+                onClick={() => setShowEmailModal(false)}
+                disabled={emailSending}
+                style={{ padding: '10px 24px' }}
+              >
+                CANCEL
+              </button>
+              <button
+                className="greenBtn"
+                onClick={sendBillsEmail}
+                disabled={emailSending}
+                style={{ padding: '10px 24px' }}
+              >
+                {emailSending ? "⏳ Sending..." : "📤 SEND EMAIL"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     
   );
