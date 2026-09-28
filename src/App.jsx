@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { createClient } from '@supabase/supabase-js';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
+
 
 const supabaseUrl = 'https://oxnmkgmuerxtzcdhsbuc.supabase.co';
 const supabaseKey = 'sb_publishable_T_-uBi1pVO3pB4Oi0a5L1Q_2XOftjCI';
@@ -918,7 +919,7 @@ const generateBillPDF = (bill) => {
   const igstAmount = (totalAmount * igstRate) / 100;
   const grandTotal = totalAmount + igstAmount;
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: yPos,
     head: [['#', 'Description', 'Date', 'C.N. No.', 'Lorry No.', 'Act. Wt', 'Chg. Wt', 'Rate', 'Amount']],
     body: tableData,
