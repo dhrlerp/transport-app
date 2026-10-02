@@ -520,6 +520,23 @@ const lhbPending = () => {
   return lhbCurrentTotal() - lhbPaidTotal();
 };
   
+  // 🔥 LHB HISTORY LOAD FUNCTION
+  const loadLhbHistory = async (tripNo) => {
+    try {
+      const { data, error } = await supabase
+        .from('lhb_history')
+        .select('*')
+        .eq('trip_no', tripNo)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setLhbHistory(data || []);
+    } catch (e) {
+      console.log("History load error:", e);
+      setLhbHistory([]);
+    }
+  };
+
  // =========================================================
   // LOAD ALL DATA FUNCTION
   // =========================================================
