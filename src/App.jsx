@@ -4581,23 +4581,57 @@ Thank You`;
     return pendingBalance > 0;
   });
 
-  // ... baaki existing code (handleSelectTrip, handleSaveBalance, return JSX)
-
-    const handleSelectTrip = (tripId) => {
-    const trip = filteredTripsLHB.find((item) => String(item.id) === String(tripId));
-    if (!trip) {
-      setLhbTrip(null);
-      return;
-    }
-    setLhbTrip(trip);
-    setLhbPayTo(trip.brokerName ? "BROKER" : "OWNER");
-    setLhbHalting(Number(trip.haltingAddition || 0) + Number(trip.haltingDeduction || 0));
-    setLhbDamage(Number(trip.damageAddition || 0) + Number(trip.damageDeduction || 0));
-    setLhbCash(0);
-    setLhbBank(0);
-    setLhbOther(0);
-    setLhbRemarks("");
-  };
+      const handleSelectTrip = (tripId) => {
+      console.log("🎯 handleSelectTrip called with ID:", tripId);
+      console.log("📋 Total filtered trips:", filteredTripsLHB.length);
+      
+      // 🔥 FIX: Har grouped trip ke _allTripIds mein search karo
+      let trip = null;
+      
+      // Pehle filteredTripsLHB mein dhundo
+      for (const groupedItem of filteredTripsLHB) {
+        const tripIds = groupedItem._allTripIds || [groupedItem.id];
+        const matchFound = tripIds.some(tId => String(tId) === String(tripId));
+        
+        if (matchFound) {
+          trip = groupedItem;
+          console.log("✅ Trip found in filteredTripsLHB:", trip.tripNo);
+          break;
+        }
+      }
+      
+      // Agar nahi mila, toh groupedTrips (unfiltered) mein dhundo
+      if (!trip) {
+        for (const groupedItem of groupedTrips) {
+          const tripIds = groupedItem._allTripIds || [groupedItem.id];
+          const matchFound = tripIds.some(tId => String(tId) === String(tripId));
+          
+          if (matchFound) {
+            trip = groupedItem;
+            console.log("✅ Trip found in groupedTrips:", trip.tripNo);
+            break;
+          }
+        }
+      }
+      
+      if (!trip) {
+        console.error("❌ Trip NOT FOUND for ID:", tripId);
+        alert("❌ Trip not found! Please refresh the page and try again.");
+        setLhbTrip(null);
+        return;
+      }
+      
+      // 🔥 Naya object banao (React re-render ke liye)
+      setLhbTrip({ ...trip });
+      setLhbPayTo(trip.brokerName ? "BROKER" : "OWNER");
+      setLhbHalting(Number(trip.haltingAddition || 0) + Number(trip.haltingDeduction || 0));
+      setLhbDamage(Number(trip.damageAddition || 0) + Number(trip.damageDeduction || 0));
+      setLhbCash(0);
+      setLhbBank(0);
+      setLhbOther(0);
+      setLhbRemarks("");
+      setShowHistory(false);
+    };
 
   const handleSaveBalance = async () => {
   console.log("🚀 SAVE LHB STARTED");
