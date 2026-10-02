@@ -9277,6 +9277,37 @@ const renderBillSubmissionPage = () => {
       return true;
     };
 
+    
+    // 🔥 Bilty ka Bill Number nikalne ka helper (Multiple Bilty support)
+    const getBillNumberForBilty = (biltyNo) => {
+      if (!biltyNo) return "-";
+      
+      const biltyUpper = String(biltyNo).trim().toUpperCase();
+      
+      const foundBill = bills.find((bill) => {
+        // 1. Direct match - bill.biltyNo
+        if (String(bill.biltyNo || "").trim().toUpperCase() === biltyUpper) {
+          return true;
+        }
+        
+        // 2. Vch No match
+        if (String(bill.vchNo || "").trim().toUpperCase() === biltyUpper) {
+          return true;
+        }
+        
+        // 3. Items में C.N. No. match (Multiple Bilty के लिए)
+        if (Array.isArray(bill.items)) {
+          return bill.items.some((item) => 
+            String(item.cnNo || "").trim().toUpperCase() === biltyUpper
+          );
+        }
+        
+        return false;
+      });
+      
+      return foundBill ? foundBill.billNo : "-";
+    };
+
     // =====================================================
     // FILTERED DATA
     // =====================================================
@@ -11314,6 +11345,7 @@ customerData.totalChallanDeduction += challanBiltyDeduction;
                   <th>Date</th>
                   <th>Trip No.</th>
                   <th>Bilty No.</th>
+                  <th>Bill No.</th>
                   <th>Vehicle</th>
                   <th>Driver</th>
                   <th>Broker</th>
@@ -11388,7 +11420,7 @@ customerData.totalChallanDeduction += challanBiltyDeduction;
                         color: 'white',
                         fontWeight: 'bold'
                       }}>
-                        <td colSpan="20" style={{ 
+                        <td colSpan="21" style={{ 
                           padding: '12px 15px', 
                           fontSize: '14px',
                           color: 'white',
@@ -11443,6 +11475,51 @@ customerData.totalChallanDeduction += challanBiltyDeduction;
     item.biltyNo || "-"
   )}
 </td>
+{/* 🔥 Bill Number Column - Multiple Bilty का Same Bill */}
+<td>
+  {(() => {
+    // Saari bilties ke liye same bill dhundho
+    const biltyList = item._allBiltyNos && item._allBiltyNos.length > 0 
+      ? item._allBiltyNos 
+      : [item.biltyNo];
+    
+    // Unique bill numbers nikalo
+    const uniqueBills = [...new Set(
+      biltyList
+        .map(bNo => getBillNumberForBilty(bNo))
+        .filter(bNo => bNo && bNo !== "-")
+    )];
+    
+    // अगर कोई bill नहीं मिला
+    if (uniqueBills.length === 0) {
+      return <span style={{ color: '#999', fontSize: '11px' }}>-</span>;
+    }
+    
+    // एक या उससे ज़्यादा unique bills
+    return (
+      <div>
+        {uniqueBills.map((billNo, idx) => (
+          <div 
+            key={idx} 
+            style={{ 
+              fontSize: '11px', 
+              lineHeight: '1.4',
+              color: '#16855b',
+              fontWeight: 'bold',
+              background: '#e8f5e9',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              marginBottom: '2px',
+              display: 'inline-block'
+            }}
+          >
+            🧾 {billNo}
+          </div>
+        ))}
+      </div>
+    );
+  })()}
+</td>
                             <td>{item.vehicleNo}</td>
                             <td>{item.driverName}</td>
                             <td>{item.brokerName || "-"}</td>
@@ -11491,7 +11568,7 @@ customerData.totalChallanDeduction += challanBiltyDeduction;
                         borderTop: '2px solid #16855b',
                         borderBottom: '2px solid #16855b'
                       }}>
-                        <td colSpan="8" style={{ textAlign: 'right', color: '#102a43', fontSize: '13px' }}>
+                        <td colSpan="9" style={{ textAlign: 'right', color: '#102a43', fontSize: '13px' }}>
                           📊 {monthName} Total →
                         </td>
                         <td style={{ textAlign: 'right', color: '#102a43' }}>₹{money(monthTotal.booking)}</td>
@@ -11530,7 +11607,7 @@ customerData.totalChallanDeduction += challanBiltyDeduction;
                   fontWeight: 'bold',
                   fontSize: '13px'
                 }}>
-                  <td colSpan="8" style={{ textAlign: 'right', color: 'white', padding: '12px' }}>
+                  <td colSpan="9" style={{ textAlign: 'right', color: 'white', padding: '12px' }}>
                     🎯 GRAND TOTAL ({filteredTrips.length} Trips | {sortedMonths.length} Months) →
                   </td>
                   <td style={{ textAlign: 'right', color: 'white' }}>₹{money(grandTotal.booking)}</td>
