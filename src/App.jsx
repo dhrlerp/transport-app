@@ -490,6 +490,10 @@ const [
   const [lhbOther, setLhbOther] = useState(0);
   const [lhbRemarks, setLhbRemarks] = useState("");
 
+    // 🔥 LHB HISTORY STATE (नया)
+  const [lhbHistory, setLhbHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+
     const lhbCurrentTotal = () => {
     if (!lhbTrip || typeof lhbTrip !== 'object') return 0;
     
@@ -4597,27 +4601,46 @@ Thank You`;
     
     if (!proceed) return;
   }
+    // =====================================================
+  // 🔥 DUPLICATE CHECK - अगर EDIT हो रहा है तो skip करो
   // =====================================================
-  // 🔥 DUPLICATE CHECK
-  // =====================================================
-  const originalTrip = trips.find(t => String(t.id) === String(lhbTrip.id));
-  
-  if (originalTrip) {
-    const alreadyPaid = Number(originalTrip.lhbPaid || 0);
-    const alreadyCash = Number(originalTrip.lhbCash || 0);
-    const alreadyBank = Number(originalTrip.lhbBank || 0);
-    const alreadyOther = Number(originalTrip.lhbOther || 0);
-    const alreadyTotalPaid = alreadyPaid || (alreadyCash + alreadyBank + alreadyOther);
+  const isEditMode = window.confirm(
+    `💰 PAYMENT MODE SELECT KARO:\n\n` +
+    `OK = EDIT MODE (Purani entry edit karo)\n` +
+    `Cancel = NEW PAYMENT (Naya payment add karo)\n\n` +
+    `Trip: ${lhbTrip.tripNo}\n` +
+    `Current Paid: ₹${money(lhbTrip._totalLhbPaid || lhbTrip.lhbPaid || 0)}`
+  );
 
-    if (alreadyTotalPaid > 0 || originalTrip.lhbUpdatedAt) {
-      const proceed = window.confirm(
-        `⚠️ WARNING!\n\n` +
-        `Is Trip (${originalTrip.tripNo}) ki LHB entry ALREADY ho chuki hai.\n\n` +
-        `Already Paid: ₹${alreadyTotalPaid}\n\n` +
-        `Kya aap dobara update karna chahte hain?`
-      );
-      
-      if (!proceed) return;
+  if (!isEditMode) {
+    // 🆕 NEW PAYMENT MODE - purane balance के साथ add करो
+    const originalTrip = trips.find(t => String(t.id) === String(lhbTrip.id));
+    
+    if (originalTrip) {
+      const alreadyPaid = Number(originalTrip.lhbPaid || 0);
+      const alreadyCash = Number(originalTrip.lhbCash || 0);
+      const alreadyBank = Number(originalTrip.lhbBank || 0);
+      const alreadyOther = Number(originalTrip.lhbOther || 0);
+      const alreadyTotalPaid = alreadyPaid || (alreadyCash + alreadyBank + alreadyOther);
+
+      if (alreadyTotalPaid > 0) {
+        const proceed = window.confirm(
+          `⚠️ Is Trip ki PEHLE bhi payment ho chuki hai.\n\n` +
+          `Already Paid: ₹${alreadyTotalPaid}\n\n` +
+          `Kya aap NAYA payment ADD karna chahte hain?\n` +
+          `(Purane payment ke upar ADD hoga)`
+        );
+        
+        if (!proceed) return;
+        
+        // 🔥 Purane payment को add करो
+        setLhbCash(Number(lhbCash || 0) + alreadyCash);
+        setLhbBank(Number(lhbBank || 0) + alreadyBank);
+        setLhbOther(Number(lhbOther || 0) + alreadyOther);
+        
+        // Wait for state update
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
     }
   }
 
@@ -4650,7 +4673,31 @@ Thank You`;
       
       if (error) throw error;
     }
-    
+     // 🔥 LHB HISTORY में entry add करो
+    try {
+      const historyEntry = {
+        trip_no: lhbTrip.tripNo,
+        vehicle_no: lhbTrip.vehicleNo,
+        payment_date: new Date().toISOString().slice(0, 10),
+        cash: String(lhbCash || 0),
+        bank: String(lhbBank || 0),
+        challan: String(lhbOther || 0),
+        halting: String(lhbHalting || 0),
+        damage: String(lhbDamage || 0),
+        total_paid: String(totalPayment),
+        pending: String(lhbCurrentTotal() - totalPayment),
+        remarks: lhbRemarks || "",
+        action_type: isEditMode ? "EDIT" : "NEW_PAYMENT",
+        created_at: new Date().toISOString()
+      };
+
+      // अगर lhb_history table है तो insert करो
+      await supabase.from('lhb_history').insert([historyEntry]);
+    } catch (histErr) {
+      console.log("History save failed (table nahi hai shayad):", histErr);
+      // Error ignore करो, main payment तो हो गई
+    }
+
     alert("✅ Lorry Hire Balance updated successfully!");
     setLhbTrip(null);
     setLhbSearch("");
@@ -4773,6 +4820,88 @@ Thank You`;
   >
     💰 BALANCE
   </button>
+
+  {/* 🔥 NAYA: Edit/Delete Button - अगर पहले से payment हो चुका है */}
+  {Number(item._totalLhbPaid || item.lhbPaid || 0) > 0 && (
+    <>
+      <button
+        className="editBtn"
+        onClick={() => {
+          // Confirm करो
+          if (!window.confirm(
+            `⚠️ Is Trip (${item.tripNo}) ki LHB payment edit karni hai?\n\n` +
+            `Already Paid: ₹${money(item._totalLhbPaid || item.lhbPaid || 0)}\n` +
+            `Cash: ₹${money(item._totalLhbCash || item.lhbCash || 0)}\n` +
+            `Bank: ₹${money(item._totalLhbBank || item.lhbBank || 0)}\n` +
+            `Challan: ₹${money(item._totalLhbOther || item.lhbOther || 0)}\n\n` +
+            `Continue?`
+          )) return;
+          
+          // Edit mode में ले जाओ
+          handleSelectTrip(item.id);
+          
+          // पुरानी values prefill करो
+          setTimeout(() => {
+            setLhbCash(Number(item._totalLhbCash || item.lhbCash || 0));
+            setLhbBank(Number(item._totalLhbBank || item.lhbBank || 0));
+            setLhbOther(Number(item._totalLhbOther || item.lhbOther || 0));
+            setLhbHalting(Number(item.lhbHalting || 0));
+            setLhbDamage(Number(item.lhbDamage || 0));
+            setLhbRemarks(item.lhbRemarks || "");
+          }, 100);
+        }}
+        style={{ marginLeft: '5px' }}
+      >
+        ✏️ EDIT
+      </button>
+
+      <button
+        className="deleteBtn"
+        onClick={async () => {
+          const paid = Number(item._totalLhbPaid || item.lhbPaid || 0);
+          if (!window.confirm(
+            `❌ WARNING!\n\n` +
+            `Kya aap is Trip (${item.tripNo}) ki LHB payment DELETE karna chahte hain?\n\n` +
+            `Paid Amount: ₹${money(paid)}\n\n` +
+            `Yeh action undo nahi hoga!`
+          )) return;
+
+          try {
+            const tripIdsToUpdate = item._allTripIds || [item.id];
+            
+            for (const tId of tripIdsToUpdate) {
+              const { error } = await supabase
+                .from('trips')
+                .update({
+                  lhbPayTo: "",
+                  lhbHalting: "0",
+                  lhbDamage: "0",
+                  lhbCash: "0",
+                  lhbBank: "0",
+                  lhbOther: "0",
+                  challanBiltyDeduction: "0",
+                  lhbRemarks: "",
+                  lhbPaid: "0",
+                  lhbPending: "0",
+                  lhbUpdatedAt: null
+                })
+                .eq('id', tId);
+              
+              if (error) throw error;
+            }
+            
+            alert(`✅ Trip ${item.tripNo} ki LHB payment delete ho gayi!`);
+            await loadAllData();
+          } catch (e) {
+            alert("❌ Error: " + e.message);
+          }
+        }}
+        style={{ marginLeft: '5px' }}
+      >
+        🗑️ DELETE
+      </button>
+    </>
+  )}
 </td>
                   </tr>
                 );
