@@ -4526,102 +4526,100 @@ Thank You`;
   
   window.location.href = whatsappUrl;
 };
-      // =========================================================
-  // LORRY HIRE BALANCE PAGE
+        // =========================================================
+  // LORRY HIRE BALANCE PAGE — FULL FIXED VERSION
   // =========================================================
 
   const renderLHBalancePage = () => {
-  // 🔥 GROUP BY TRIPNO — Same trip ki saari bilties ek row mein
-  const groupedTripsMap = new Map();
+    // 🔥 GROUP BY TRIPNO
+    const groupedTripsMap = new Map();
 
-  trips.forEach((item) => {
-    const key = String(item.tripNo || item.id);
-    
-    if (!groupedTripsMap.has(key)) {
-      groupedTripsMap.set(key, {
-        ...item,
-        _allTripIds: [item.id],
-        _allBiltyNos: [item.biltyNo],
-        _totalLorryFreight: Number(item.lorryFreight || 0),
-        _totalAdvance: Number(item.advance || 0),
-        _totalLhbPaid: Number(item.lhbPaid || 0),
-        _totalLhbCash: Number(item.lhbCash || 0),
-        _totalLhbBank: Number(item.lhbBank || 0),
-        _totalLhbOther: Number(item.lhbOther || 0),
-      });
-    } else {
-      const existing = groupedTripsMap.get(key);
-      existing._allTripIds.push(item.id);
-      existing._allBiltyNos.push(item.biltyNo);
-      existing._totalLorryFreight += Number(item.lorryFreight || 0);
-      existing._totalAdvance += Number(item.advance || 0);
-      existing._totalLhbPaid += Number(item.lhbPaid || 0);
-      existing._totalLhbCash += Number(item.lhbCash || 0);
-      existing._totalLhbBank += Number(item.lhbBank || 0);
-      existing._totalLhbOther += Number(item.lhbOther || 0);
-    }
-  });
-
-  const groupedTrips = Array.from(groupedTripsMap.values());
-
-  const filteredTripsLHB = groupedTrips.filter((item) => {
-    // Search filter
-    const searchText = String(lhbSearch || "").trim().toLowerCase();
-    if (searchText) {
-      const allText = `${item.tripNo || ""} ${item._allBiltyNos.join(" ")} ${item.vehicleNo || ""} ${item.brokerName || ""} ${item.from || ""} ${item.to || ""}`
-        .toLowerCase();
-      if (!allText.includes(searchText)) return false;
-    }
-
-    // 🔥 GROUPED balance calculation
-    const currentBalance = item._totalLorryFreight - item._totalAdvance;
-    const totalPaid = item._totalLhbPaid;
-    const pendingBalance = currentBalance - totalPaid;
-
-    return pendingBalance > 0;
-  });
-
-      const handleSelectTrip = (tripId) => {
-      console.log("🎯 handleSelectTrip called with ID:", tripId);
-      console.log("📋 Total filtered trips:", filteredTripsLHB.length);
+    trips.forEach((item) => {
+      const key = String(item.tripNo || item.id);
       
-      // 🔥 FIX: Har grouped trip ke _allTripIds mein search karo
+      if (!groupedTripsMap.has(key)) {
+        groupedTripsMap.set(key, {
+          ...item,
+          _allTripIds: [item.id],
+          _allBiltyNos: [item.biltyNo],
+          _totalLorryFreight: Number(item.lorryFreight || 0),
+          _totalAdvance: Number(item.advance || 0),
+          _totalLhbPaid: Number(item.lhbPaid || 0),
+          _totalLhbCash: Number(item.lhbCash || 0),
+          _totalLhbBank: Number(item.lhbBank || 0),
+          _totalLhbOther: Number(item.lhbOther || 0),
+        });
+      } else {
+        const existing = groupedTripsMap.get(key);
+        existing._allTripIds.push(item.id);
+        existing._allBiltyNos.push(item.biltyNo);
+        existing._totalLorryFreight += Number(item.lorryFreight || 0);
+        existing._totalAdvance += Number(item.advance || 0);
+        existing._totalLhbPaid += Number(item.lhbPaid || 0);
+        existing._totalLhbCash += Number(item.lhbCash || 0);
+        existing._totalLhbBank += Number(item.lhbBank || 0);
+        existing._totalLhbOther += Number(item.lhbOther || 0);
+      }
+    });
+
+    const groupedTrips = Array.from(groupedTripsMap.values());
+
+    // 🔥 FIX: सभी trips दिखाओ (paid + pending) — filter हटा दिया
+    const filteredTripsLHB = groupedTrips.filter((item) => {
+      const searchText = String(lhbSearch || "").trim().toLowerCase();
+      if (searchText) {
+        const allText = `${item.tripNo || ""} ${item._allBiltyNos.join(" ")} ${item.vehicleNo || ""} ${item.brokerName || ""} ${item.from || ""} ${item.to || ""}`.toLowerCase();
+        if (!allText.includes(searchText)) return false;
+      }
+      return true;   // ✅ सभी trips दिखेंगे
+    });
+
+    // 🔥 HISTORY LOAD FUNCTION
+    const loadLhbHistory = async (tripNo) => {
+      try {
+        const { data, error } = await supabase
+          .from('lhb_history')
+          .select('*')
+          .eq('trip_no', tripNo)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setLhbHistory(data || []);
+      } catch (e) {
+        console.log("History load error:", e);
+        setLhbHistory([]);
+      }
+    };
+
+    // 🔥 SELECT TRIP — Fixed version
+    const handleSelectTrip = (tripId) => {
       let trip = null;
-      
-      // Pehle filteredTripsLHB mein dhundo
+
       for (const groupedItem of filteredTripsLHB) {
         const tripIds = groupedItem._allTripIds || [groupedItem.id];
         const matchFound = tripIds.some(tId => String(tId) === String(tripId));
-        
         if (matchFound) {
           trip = groupedItem;
-          console.log("✅ Trip found in filteredTripsLHB:", trip.tripNo);
           break;
         }
       }
-      
-      // Agar nahi mila, toh groupedTrips (unfiltered) mein dhundo
+
       if (!trip) {
         for (const groupedItem of groupedTrips) {
           const tripIds = groupedItem._allTripIds || [groupedItem.id];
           const matchFound = tripIds.some(tId => String(tId) === String(tripId));
-          
           if (matchFound) {
             trip = groupedItem;
-            console.log("✅ Trip found in groupedTrips:", trip.tripNo);
             break;
           }
         }
       }
-      
+
       if (!trip) {
-        console.error("❌ Trip NOT FOUND for ID:", tripId);
-        alert("❌ Trip not found! Please refresh the page and try again.");
-        setLhbTrip(null);
+        alert("❌ Trip not found. Please refresh the page.");
         return;
       }
-      
-      // 🔥 Naya object banao (React re-render ke liye)
+
       setLhbTrip({ ...trip });
       setLhbPayTo(trip.brokerName ? "BROKER" : "OWNER");
       setLhbHalting(Number(trip.haltingAddition || 0) + Number(trip.haltingDeduction || 0));
@@ -4633,512 +4631,530 @@ Thank You`;
       setShowHistory(false);
     };
 
-  const handleSaveBalance = async () => {
-  console.log("🚀 SAVE LHB STARTED");
-  
-  if (!lhbTrip) {
-    alert("Please select a Trip first.");
-    return;
-  }
-// 🔥 NAYA: POD RECEIVED CHECK
-  if (!lhbTrip.podReceived) {
-    const proceed = window.confirm(
-      `⚠️ POD NOT RECEIVED!\n\n` +
-      `Trip: ${lhbTrip.tripNo}\n` +
-      `Vehicle: ${lhbTrip.vehicleNo}\n\n` +
-      `Is trip ki POD abhi receive nahi hui hai.\n\n` +
-      `Kya aap still balance pay karna chahte hain?`
-    );
-    
-    if (!proceed) return;
-  }
-    // =====================================================
-  // 🔥 DUPLICATE CHECK - अगर EDIT हो रहा है तो skip करो
-  // =====================================================
-  const isEditMode = window.confirm(
-    `💰 PAYMENT MODE SELECT KARO:\n\n` +
-    `OK = EDIT MODE (Purani entry edit karo)\n` +
-    `Cancel = NEW PAYMENT (Naya payment add karo)\n\n` +
-    `Trip: ${lhbTrip.tripNo}\n` +
-    `Current Paid: ₹${money(lhbTrip._totalLhbPaid || lhbTrip.lhbPaid || 0)}`
-  );
+    // 🔥 EDIT TRIP — Purani values prefill करो
+    const handleEditTrip = (item) => {
+      const hasPaid = Number(item._totalLhbPaid || 0) > 0;
 
-  if (!isEditMode) {
-    // 🆕 NEW PAYMENT MODE - purane balance के साथ add करो
-    const originalTrip = trips.find(t => String(t.id) === String(lhbTrip.id));
-    
-    if (originalTrip) {
-      const alreadyPaid = Number(originalTrip.lhbPaid || 0);
-      const alreadyCash = Number(originalTrip.lhbCash || 0);
-      const alreadyBank = Number(originalTrip.lhbBank || 0);
-      const alreadyOther = Number(originalTrip.lhbOther || 0);
-      const alreadyTotalPaid = alreadyPaid || (alreadyCash + alreadyBank + alreadyOther);
+      if (!window.confirm(
+        hasPaid
+          ? `✏️ EDIT MODE\n\nTrip: ${item.tripNo}\nAlready Paid: ₹${money(item._totalLhbPaid)}\n\nPurani values prefill ho jayengi. Correct karke SAVE karo.`
+          : `💰 NEW PAYMENT\n\nTrip: ${item.tripNo}\nAbhi koi payment nahi hui.\n\nNaya payment add karne ke liye OK dabayein.`
+      )) return;
 
-      if (alreadyTotalPaid > 0) {
-        const proceed = window.confirm(
-          `⚠️ Is Trip ki PEHLE bhi payment ho chuki hai.\n\n` +
-          `Already Paid: ₹${alreadyTotalPaid}\n\n` +
-          `Kya aap NAYA payment ADD karna chahte hain?\n` +
-          `(Purane payment ke upar ADD hoga)`
-        );
-        
-        if (!proceed) return;
-        
-        // 🔥 Purane payment को add करो
-        setLhbCash(Number(lhbCash || 0) + alreadyCash);
-        setLhbBank(Number(lhbBank || 0) + alreadyBank);
-        setLhbOther(Number(lhbOther || 0) + alreadyOther);
-        
-        // Wait for state update
-        await new Promise(resolve => setTimeout(resolve, 100));
+      handleSelectTrip(item.id);
+
+      // Purani values prefill
+      if (hasPaid) {
+        setTimeout(() => {
+          setLhbCash(Number(item._totalLhbCash || 0));
+          setLhbBank(Number(item._totalLhbBank || 0));
+          setLhbOther(Number(item._totalLhbOther || 0));
+          setLhbHalting(Number(item.lhbHalting || 0));
+          setLhbDamage(Number(item.lhbDamage || 0));
+          setLhbRemarks(item.lhbRemarks || "");
+        }, 100);
       }
-    }
-  }
+    };
 
-  const totalPayment = lhbPaidTotal();
+    // 🔥 DELETE PAYMENT
+    const handleDeletePayment = async (item) => {
+      const paid = Number(item._totalLhbPaid || 0);
 
-    const updateData = {
-    lhbPayTo: lhbPayTo || "BROKER",
-    lhbHalting: String(lhbHalting || 0),
-    lhbDamage: String(lhbDamage || 0),
-    lhbCash: String(lhbCash || 0),
-    lhbBank: String(lhbBank || 0),
-    lhbOther: String(lhbOther || 0),
-    challanBiltyDeduction: String(lhbOther || 0),
-    lhbRemarks: lhbRemarks || "",
-    lhbPaid: String(totalPayment),
-    lhbPending: String(lhbCurrentTotal() - totalPayment),
-    lhbUpdatedAt: new Date().toISOString()
-  };
+      if (paid === 0) {
+        alert("❌ Is trip ki koi payment nahi hui hai. Delete karne ke liye kuch nahi hai.");
+        return;
+      }
 
+      if (!window.confirm(
+        `❌ DELETE PAYMENT\n\n` +
+        `Trip: ${item.tripNo}\n` +
+        `Paid Amount: ₹${money(paid)}\n\n` +
+        `Cash: ₹${money(item._totalLhbCash)}\n` +
+        `Bank: ₹${money(item._totalLhbBank)}\n` +
+        `Challan: ₹${money(item._totalLhbOther)}\n\n` +
+        `Yeh action undo nahi hoga!\n` +
+        `Continue?`
+      )) return;
 
-    try {
-    // 🔥 Agar grouped trip hai to SAARI rows update karo
-    const tripIdsToUpdate = lhbTrip._allTripIds || [lhbTrip.id];
-    
-    for (const tId of tripIdsToUpdate) {
-      const { error } = await supabase
-        .from('trips')
-        .update(updateData)
-        .eq('id', tId);
-      
-      if (error) throw error;
-    }
-     // 🔥 LHB HISTORY में entry add करो
-    try {
-      const historyEntry = {
-        trip_no: lhbTrip.tripNo,
-        vehicle_no: lhbTrip.vehicleNo,
-        payment_date: new Date().toISOString().slice(0, 10),
-        cash: String(lhbCash || 0),
-        bank: String(lhbBank || 0),
-        challan: String(lhbOther || 0),
-        halting: String(lhbHalting || 0),
-        damage: String(lhbDamage || 0),
-        total_paid: String(totalPayment),
-        pending: String(lhbCurrentTotal() - totalPayment),
-        remarks: lhbRemarks || "",
-        action_type: isEditMode ? "EDIT" : "NEW_PAYMENT",
-        created_at: new Date().toISOString()
+      try {
+        const tripIdsToUpdate = item._allTripIds || [item.id];
+
+        for (const tId of tripIdsToUpdate) {
+          const { error } = await supabase
+            .from('trips')
+            .update({
+              lhbPayTo: "",
+              lhbHalting: "0",
+              lhbDamage: "0",
+              lhbCash: "0",
+              lhbBank: "0",
+              lhbOther: "0",
+              challanBiltyDeduction: "0",
+              lhbRemarks: "",
+              lhbPaid: "0",
+              lhbPending: "0",
+              lhbUpdatedAt: null
+            })
+            .eq('id', tId);
+          if (error) throw error;
+        }
+
+        alert(`✅ Trip ${item.tripNo} ki LHB payment DELETE ho gayi!`);
+        await loadAllData();
+      } catch (e) {
+        alert("❌ Error: " + e.message);
+      }
+    };
+
+    // 🔥 SAVE BALANCE
+    const handleSaveBalance = async () => {
+      if (!lhbTrip) {
+        alert("Please select a Trip first.");
+        return;
+      }
+
+      // POD CHECK
+      if (!lhbTrip.podReceived) {
+        const proceed = window.confirm(
+          `⚠️ POD NOT RECEIVED!\n\n` +
+          `Trip: ${lhbTrip.tripNo}\n` +
+          `Vehicle: ${lhbTrip.vehicleNo}\n\n` +
+          `Is trip ki POD abhi receive nahi hui hai.\n\n` +
+          `Kya aap still balance pay karna chahte hain?`
+        );
+        if (!proceed) return;
+      }
+
+      // DUPLICATE CHECK
+      const originalTrip = trips.find(t => String(t.id) === String(lhbTrip.id));
+      if (originalTrip) {
+        const alreadyPaid = Number(originalTrip.lhbPaid || 0);
+        const alreadyCash = Number(originalTrip.lhbCash || 0);
+        const alreadyBank = Number(originalTrip.lhbBank || 0);
+        const alreadyOther = Number(originalTrip.lhbOther || 0);
+        const alreadyTotalPaid = alreadyPaid || (alreadyCash + alreadyBank + alreadyOther);
+
+        if (alreadyTotalPaid > 0 || originalTrip.lhbUpdatedAt) {
+          const proceed = window.confirm(
+            `⚠️ WARNING!\n\n` +
+            `Is Trip (${originalTrip.tripNo}) ki LHB entry ALREADY ho chuki hai.\n\n` +
+            `Already Paid: ₹${alreadyTotalPaid}\n\n` +
+            `Kya aap dobara update karna chahte hain?`
+          );
+          if (!proceed) return;
+        }
+      }
+
+      const totalPayment = lhbPaidTotal();
+
+      const updateData = {
+        lhbPayTo: lhbPayTo || "BROKER",
+        lhbHalting: String(lhbHalting || 0),
+        lhbDamage: String(lhbDamage || 0),
+        lhbCash: String(lhbCash || 0),
+        lhbBank: String(lhbBank || 0),
+        lhbOther: String(lhbOther || 0),
+        challanBiltyDeduction: String(lhbOther || 0),
+        lhbRemarks: lhbRemarks || "",
+        lhbPaid: String(totalPayment),
+        lhbPending: String(lhbCurrentTotal() - totalPayment),
+        lhbUpdatedAt: new Date().toISOString()
       };
 
-      // अगर lhb_history table है तो insert करो
-      await supabase.from('lhb_history').insert([historyEntry]);
-    } catch (histErr) {
-      console.log("History save failed (table nahi hai shayad):", histErr);
-      // Error ignore करो, main payment तो हो गई
-    }
+      try {
+        const tripIdsToUpdate = lhbTrip._allTripIds || [lhbTrip.id];
+        for (const tId of tripIdsToUpdate) {
+          const { error } = await supabase
+            .from('trips')
+            .update(updateData)
+            .eq('id', tId);
+          if (error) throw error;
+        }
 
-    alert("✅ Lorry Hire Balance updated successfully!");
-    setLhbTrip(null);
-    setLhbSearch("");
-    setLhbHalting(0);
-    setLhbDamage(0);
-    setLhbCash(0);
-    setLhbBank(0);
-    setLhbOther(0);
-    setLhbRemarks("");
-    await loadAllData();
-  } catch (e) {
-    alert("❌ Error: " + e.message);
-  }
-};
+        // HISTORY SAVE
+        try {
+          await supabase.from('lhb_history').insert([{
+            trip_no: lhbTrip.tripNo,
+            vehicle_no: lhbTrip.vehicleNo,
+            payment_date: new Date().toISOString().slice(0, 10),
+            cash: String(lhbCash || 0),
+            bank: String(lhbBank || 0),
+            challan: String(lhbOther || 0),
+            halting: String(lhbHalting || 0),
+            damage: String(lhbDamage || 0),
+            total_paid: String(totalPayment),
+            pending: String(lhbCurrentTotal() - totalPayment),
+            remarks: lhbRemarks || "",
+            action_type: "PAYMENT"
+          }]);
+        } catch (histErr) {
+          console.log("History save failed:", histErr);
+        }
 
-  return (
-    <>
-      <div className="pageTitle" style={{
-        background: 'linear-gradient(135deg, #102a43 0%, #1a3a5c 100%)',
-        padding: '25px 30px',
-        borderRadius: '10px',
-        color: 'white',
-        marginBottom: '25px'
-      }}>
-        <div>
-          <h2 style={{ color: 'white', margin: 0, fontSize: '24px' }}>💰 Lorry Hire Balance (LHB)</h2>
-          <p style={{ color: '#b8d4e8', margin: '5px 0 0', fontSize: '13px' }}>
-            Trip / LHC number se Balance Pay karo, Broker / Owner select karo
-          </p>
-        </div>
-      </div>
+        alert("✅ Lorry Hire Balance updated successfully!");
+        setLhbTrip(null);
+        setLhbSearch("");
+        setLhbHalting(0);
+        setLhbDamage(0);
+        setLhbCash(0);
+        setLhbBank(0);
+        setLhbOther(0);
+        setLhbRemarks("");
+        setShowHistory(false);
+        await loadAllData();
+      } catch (e) {
+        alert("❌ Error: " + e.message);
+      }
+    };
 
-      {/* SEARCH TRIP SECTION */}
-      <div className="card" style={{ padding: '20px' }}>
-        <div className="inputButton">
-          <input
-            type="text"
-            value={lhbSearch}
-            onChange={(e) => setLhbSearch(e.target.value)}
-            placeholder="🔍 Trip / LHC Number, Bilty No, Vehicle No search karo"
-            style={{ flex: 1, padding: '14px 16px', fontSize: '16px', border: '2px solid #dfe6ed', borderRadius: '8px' }}
-          />
-        </div>
-
-        <div className="tableWrapper" style={{ marginTop: '15px' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Trip No.</th>
-                <th>Bilty No.</th>
-                <th>Vehicle</th>
-                <th>Broker / Owner</th>
-                <th>Lorry Freight</th>
-                <th>Advance</th>
-                    <th>POD Status</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTripsLHB.map((item) => {
-                const hire = Number(item.lorryFreight || 0);
-                const advance = Number(item.advance || 0);
-                const balance = hire - advance;
-                return (
-                  <tr key={item.id}>
-  <td><strong>{item.tripNo}</strong></td>
-  <td>
-    {item._allBiltyNos && item._allBiltyNos.length > 1 ? (
-      <div>
-        {item._allBiltyNos.map((bNo, idx) => (
-          <div key={idx} style={{ fontSize: '11px', lineHeight: '1.4' }}>
-            • {bNo}
+    return (
+      <>
+        <div className="pageTitle" style={{
+          background: 'linear-gradient(135deg, #102a43 0%, #1a3a5c 100%)',
+          padding: '25px 30px',
+          borderRadius: '10px',
+          color: 'white',
+          marginBottom: '25px'
+        }}>
+          <div>
+            <h2 style={{ color: 'white', margin: 0, fontSize: '24px' }}>💰 Lorry Hire Balance (LHB)</h2>
+            <p style={{ color: '#b8d4e8', margin: '5px 0 0', fontSize: '13px' }}>
+              Trip / LHC number se Balance Pay karo — Paid & Pending dono dikhte hain
+            </p>
           </div>
-        ))}
-      </div>
-    ) : (
-      item.biltyNo || "-"
-    )}
-  </td>
-  <td>{item.vehicleNo}</td>
-  <td>{item.brokerName || item.ownerName || "-"}</td>
-  <td>₹{money(item._totalLorryFreight || item.lorryFreight)}</td>
-  <td>₹{money(item._totalAdvance || item.advance)}</td>
-  <td>{item.status}</td>
+        </div>
 
-{/* 🔥 NAYA: POD STATUS COLUMN */}
-<td style={{ textAlign: 'center' }}>
-  {item.podReceived ? (
-    <span style={{ 
-      background: '#e8f5e9', 
-      color: '#16855b', 
-      padding: '3px 10px', 
-      borderRadius: '12px',
-      fontSize: '11px',
-      fontWeight: 'bold',
-      whiteSpace: 'nowrap'
-    }}>
-      ✅ {formatDate(item.podReceivedDate)}
-    </span>
-  ) : (
-    <span style={{ 
-      background: '#ffebee', 
-      color: '#c62828', 
-      padding: '3px 10px', 
-      borderRadius: '12px',
-      fontSize: '11px',
-      fontWeight: 'bold',
-      whiteSpace: 'nowrap'
-    }}>
-      ⏳ POD Pending
-    </span>
-  )}
-</td>
+        {/* SEARCH SECTION */}
+        <div className="card" style={{ padding: '20px' }}>
+          <div className="inputButton">
+            <input
+              type="text"
+              value={lhbSearch}
+              onChange={(e) => setLhbSearch(e.target.value)}
+              placeholder="🔍 Trip / LHC Number, Bilty No, Vehicle No search karo"
+              style={{ flex: 1, padding: '14px 16px', fontSize: '16px', border: '2px solid #dfe6ed', borderRadius: '8px' }}
+            />
+          </div>
 
-<td>
-  <button
-    className="blueBtn"
-    onClick={() => handleSelectTrip(item.id)}
-  >
-    💰 BALANCE
-  </button>
-
-  {/* 🔥 NAYA: Edit/Delete Button - अगर पहले से payment हो चुका है */}
-  {Number(item._totalLhbPaid || item.lhbPaid || 0) > 0 && (
-    <>
-      <button
-        className="editBtn"
-        onClick={() => {
-          // Confirm करो
-          if (!window.confirm(
-            `⚠️ Is Trip (${item.tripNo}) ki LHB payment edit karni hai?\n\n` +
-            `Already Paid: ₹${money(item._totalLhbPaid || item.lhbPaid || 0)}\n` +
-            `Cash: ₹${money(item._totalLhbCash || item.lhbCash || 0)}\n` +
-            `Bank: ₹${money(item._totalLhbBank || item.lhbBank || 0)}\n` +
-            `Challan: ₹${money(item._totalLhbOther || item.lhbOther || 0)}\n\n` +
-            `Continue?`
-          )) return;
-          
-          // Edit mode में ले जाओ
-          handleSelectTrip(item.id);
-          
-          // पुरानी values prefill करो
-          setTimeout(() => {
-            setLhbCash(Number(item._totalLhbCash || item.lhbCash || 0));
-            setLhbBank(Number(item._totalLhbBank || item.lhbBank || 0));
-            setLhbOther(Number(item._totalLhbOther || item.lhbOther || 0));
-            setLhbHalting(Number(item.lhbHalting || 0));
-            setLhbDamage(Number(item.lhbDamage || 0));
-            setLhbRemarks(item.lhbRemarks || "");
-          }, 100);
-        }}
-        style={{ marginLeft: '5px' }}
-      >
-        ✏️ EDIT
-      </button>
-
-      <button
-        className="deleteBtn"
-        onClick={async () => {
-          const paid = Number(item._totalLhbPaid || item.lhbPaid || 0);
-          if (!window.confirm(
-            `❌ WARNING!\n\n` +
-            `Kya aap is Trip (${item.tripNo}) ki LHB payment DELETE karna chahte hain?\n\n` +
-            `Paid Amount: ₹${money(paid)}\n\n` +
-            `Yeh action undo nahi hoga!`
-          )) return;
-
-          try {
-            const tripIdsToUpdate = item._allTripIds || [item.id];
-            
-            for (const tId of tripIdsToUpdate) {
-              const { error } = await supabase
-                .from('trips')
-                .update({
-                  lhbPayTo: "",
-                  lhbHalting: "0",
-                  lhbDamage: "0",
-                  lhbCash: "0",
-                  lhbBank: "0",
-                  lhbOther: "0",
-                  challanBiltyDeduction: "0",
-                  lhbRemarks: "",
-                  lhbPaid: "0",
-                  lhbPending: "0",
-                  lhbUpdatedAt: null
-                })
-                .eq('id', tId);
-              
-              if (error) throw error;
-            }
-            
-            alert(`✅ Trip ${item.tripNo} ki LHB payment delete ho gayi!`);
-            await loadAllData();
-          } catch (e) {
-            alert("❌ Error: " + e.message);
-          }
-        }}
-        style={{ marginLeft: '5px' }}
-      >
-        🗑️ DELETE
-      </button>
-    </>
-  )}
-</td>
-                  </tr>
-                );
-              })}
-              {filteredTripsLHB.length === 0 && (
+          <div className="tableWrapper" style={{ marginTop: '15px' }}>
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan="8" className="empty">Koi Trip nahi mila.</td>
+                  <th>Trip No.</th>
+                  <th>Bilty No.</th>
+                  <th>Vehicle</th>
+                  <th>Broker / Owner</th>
+                  <th>Lorry Freight</th>
+                  <th>Advance</th>
+                  <th>Paid</th>
+                  <th>Pending</th>
+                  <th>POD</th>
+                  <th>Status</th>
+                  <th>Action</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </thead>
+              <tbody>
+                {filteredTripsLHB.map((item) => {
+                  const totalPaid = Number(item._totalLhbPaid || 0);
+                  const currentBalance = (item._totalLorryFreight - item._totalAdvance);
+                  const pending = currentBalance - totalPaid;
+                  const hasPaid = totalPaid > 0;
 
-      {/* SELECTED TRIP DETAILS */}
-      {lhbTrip && (
-        <div className="card" style={{ padding: '20px', marginTop: '20px' }}>
-          <h3 style={{ color: '#102a43' }}>💰 Trip Details: {lhbTrip.tripNo}</h3>
+                  return (
+                    <tr key={item.id}>
+                      <td><strong>{item.tripNo}</strong></td>
+                      <td>
+                        {item._allBiltyNos && item._allBiltyNos.length > 1 ? (
+                          <div>
+                            {item._allBiltyNos.map((bNo, idx) => (
+                              <div key={idx} style={{ fontSize: '11px', lineHeight: '1.4' }}>
+                                • {bNo}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          item.biltyNo || "-"
+                        )}
+                      </td>
+                      <td>{item.vehicleNo}</td>
+                      <td>{item.brokerName || item.ownerName || "-"}</td>
+                      <td>₹{money(item._totalLorryFreight)}</td>
+                      <td>₹{money(item._totalAdvance)}</td>
 
-          <div className="marginBox">
-            <div>
-              <span>Lorry Freight</span>
-              <strong>₹{money(lhbTrip.lorryFreight)}</strong>
-            </div>
-            <div>
-              <span>Advance Paid</span>
-              <strong>₹{money(lhbTrip.advance)}</strong>
-            </div>
-            <div>
-              <span>Total Balance</span>
-              <strong>₹{money(Number(lhbTrip.lorryFreight || 0) - Number(lhbTrip.advance || 0))}</strong>
-            </div>
+                      {/* PAID COLUMN */}
+                      <td style={{ color: '#16855b', fontWeight: 'bold' }}>
+                        ₹{money(totalPaid)}
+                      </td>
+
+                      {/* PENDING COLUMN */}
+                      <td style={{
+                        color: pending > 0 ? '#c62828' : '#16855b',
+                        fontWeight: 'bold'
+                      }}>
+                        ₹{money(Math.max(0, pending))}
+                      </td>
+
+                      {/* POD STATUS */}
+                      <td style={{ textAlign: 'center' }}>
+                        {item.podReceived ? (
+                          <span style={{
+                            background: '#e8f5e9', color: '#16855b',
+                            padding: '3px 10px', borderRadius: '12px',
+                            fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap'
+                          }}>
+                            ✅ {formatDate(item.podReceivedDate)}
+                          </span>
+                        ) : (
+                          <span style={{
+                            background: '#ffebee', color: '#c62828',
+                            padding: '3px 10px', borderRadius: '12px',
+                            fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap'
+                          }}>
+                            ⏳ Pending
+                          </span>
+                        )}
+                      </td>
+
+                      <td>{item.status}</td>
+
+                      {/* 🔥 ACTION BUTTONS — हमेशा दिखेंगे */}
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        {/* BALANCE button — payment entry के लिए */}
+                        <button
+                          className="blueBtn"
+                          onClick={() => handleSelectTrip(item.id)}
+                          style={{ marginRight: '5px' }}
+                        >
+                          💰 BALANCE
+                        </button>
+
+                        {/* EDIT button — अगर payment है तो */}
+                        {hasPaid && (
+                          <button
+                            className="editBtn"
+                            onClick={() => handleEditTrip(item)}
+                            style={{ marginRight: '5px' }}
+                          >
+                            ✏️ EDIT
+                          </button>
+                        )}
+
+                        {/* DELETE button — अगर payment है तो */}
+                        {hasPaid && (
+                          <button
+                            className="deleteBtn"
+                            onClick={() => handleDeletePayment(item)}
+                          >
+                            🗑️ DELETE
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {filteredTripsLHB.length === 0 && (
+                  <tr>
+                    <td colSpan="11" className="empty">Koi Trip nahi mila.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
+        </div>
 
-          {/* PAY TO SELECTION */}
-          <div className="sectionTitle">PAY TO (BROKER / OWNER)</div>
-          <div className="formGrid">
-            <div className="field">
-              <label>Payment Kisko Karna Hai?</label>
-              <select
-                value={lhbPayTo}
-                onChange={(e) => setLhbPayTo(e.target.value)}
+        {/* SELECTED TRIP DETAILS */}
+        {lhbTrip && (
+          <div className="card" style={{ padding: '20px', marginTop: '20px' }}>
+            <h3 style={{ color: '#102a43' }}>💰 Trip Details: {lhbTrip.tripNo}</h3>
+
+            <div className="marginBox">
+              <div>
+                <span>Lorry Freight</span>
+                <strong>₹{money(lhbTrip._totalLorryFreight || lhbTrip.lorryFreight)}</strong>
+              </div>
+              <div>
+                <span>Advance Paid</span>
+                <strong>₹{money(lhbTrip._totalAdvance || lhbTrip.advance)}</strong>
+              </div>
+              <div>
+                <span>Already Paid (LHB)</span>
+                <strong style={{ color: '#16855b' }}>₹{money(lhbTrip._totalLhbPaid || 0)}</strong>
+              </div>
+              <div>
+                <span>Total Balance</span>
+                <strong style={{ color: '#c62828' }}>
+                  ₹{money(lhbCurrentTotal())}
+                </strong>
+              </div>
+            </div>
+
+            <div className="sectionTitle">PAY TO (BROKER / OWNER)</div>
+            <div className="formGrid">
+              <div className="field">
+                <label>Payment Kisko Karna Hai?</label>
+                <select value={lhbPayTo} onChange={(e) => setLhbPayTo(e.target.value)}>
+                  <option value="BROKER">BROKER (Broker Name: {lhbTrip.brokerName || "-"})</option>
+                  <option value="OWNER">OWNER (Owner Name: {lhbTrip.ownerName || "-"})</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="sectionTitle">ADJUSTMENTS (HALTING & DAMAGE)</div>
+            <div className="formGrid">
+              <div className="field">
+                <label>Halting Addition (+)</label>
+                <input type="number" value={lhbHalting} onChange={(e) => setLhbHalting(e.target.value)} placeholder="0" />
+              </div>
+              <div className="field">
+                <label>Damage Deduction (-)</label>
+                <input type="number" value={lhbDamage} onChange={(e) => setLhbDamage(e.target.value)} placeholder="0" />
+              </div>
+            </div>
+
+            <div className="sectionTitle">PAYMENT MODE (SPLIT PAYMENT)</div>
+            <div className="formGrid">
+              <div className="field">
+                <label>Cash Amount (₹)</label>
+                <input type="number" value={lhbCash} onChange={(e) => setLhbCash(e.target.value)} placeholder="0" />
+              </div>
+              <div className="field">
+                <label>NEFT / Bank Transfer (₹)</label>
+                <input type="number" value={lhbBank} onChange={(e) => setLhbBank(e.target.value)} placeholder="0" />
+              </div>
+              <div className="field">
+                <label>Challan & Bilty Deduction (₹)</label>
+                <input type="number" value={lhbOther} onChange={(e) => setLhbOther(e.target.value)} placeholder="0" />
+              </div>
+              <div className="field full">
+                <label>Remarks</label>
+                <textarea value={lhbRemarks} onChange={(e) => setLhbRemarks(e.target.value)} placeholder="Payment remarks" />
+              </div>
+            </div>
+
+            <div className="marginBox" style={{ marginTop: '15px' }}>
+              <div>
+                <span>Current Balance</span>
+                <strong>₹{money(lhbCurrentTotal())}</strong>
+              </div>
+              <div>
+                <span>Cash Paid</span>
+                <strong>₹{money(lhbCash)}</strong>
+              </div>
+              <div>
+                <span>NEFT Paid</span>
+                <strong>₹{money(lhbBank)}</strong>
+              </div>
+              <div>
+                <span>Challan & Bilty Deduction</span>
+                <strong>₹{money(lhbOther)}</strong>
+              </div>
+              <div>
+                <span>Total Paid (This Entry)</span>
+                <strong>₹{money(lhbPaidTotal())}</strong>
+              </div>
+              <div>
+                <span>Pending After This</span>
+                <strong style={{ color: '#c62828' }}>₹{money(lhbPending())}</strong>
+              </div>
+            </div>
+
+            <div className="formButtons">
+              <button
+                className="blueBtn"
+                onClick={() => {
+                  setLhbTrip(null);
+                  setLhbSearch("");
+                  setLhbHalting(0);
+                  setLhbDamage(0);
+                  setLhbCash(0);
+                  setLhbBank(0);
+                  setLhbOther(0);
+                  setLhbRemarks("");
+                  setShowHistory(false);
+                }}
               >
-                <option value="BROKER">BROKER (Broker Name: {lhbTrip.brokerName || "-"})</option>
-                <option value="OWNER">OWNER (Owner Name: {lhbTrip.ownerName || "-"})</option>
-              </select>
-            </div>
-          </div>
+                RESET
+              </button>
 
-          {/* ADJUSTMENTS */}
-          <div className="sectionTitle">ADJUSTMENTS (HALTING & DAMAGE)</div>
-          <div className="formGrid">
-            <div className="field">
-              <label>Halting Addition (+)</label>
-              <input
-                type="number"
-                value={lhbHalting}
-                onChange={(e) => setLhbHalting(e.target.value)}
-                placeholder="0"
-              />
-            </div>
-            <div className="field">
-              <label>Damage Deduction (-)</label>
-              <input
-                type="number"
-                value={lhbDamage}
-                onChange={(e) => setLhbDamage(e.target.value)}
-                placeholder="0"
-              />
-            </div>
-          </div>
+              <button className="greenBtn" onClick={handleSaveBalance}>
+                ✅ SAVE BALANCE
+              </button>
 
-          {/* SPLIT PAYMENT */}
-          <div className="sectionTitle">PAYMENT MODE (SPLIT PAYMENT)</div>
-          <div className="formGrid">
-            <div className="field">
-              <label>Cash Amount (₹)</label>
-              <input
-                type="number"
-                value={lhbCash}
-                onChange={(e) => setLhbCash(e.target.value)}
-                placeholder="0"
-              />
-            </div>
-            <div className="field">
-              <label>NEFT / Bank Transfer (₹)</label>
-              <input
-                type="number"
-                value={lhbBank}
-                onChange={(e) => setLhbBank(e.target.value)}
-                placeholder="0"
-              />
-            </div>
-            <div className="field">
-  <label>Challan & Bilty Deduction (₹)</label>
-  <input
-    type="number"
-    value={lhbOther}
-    onChange={(e) => setLhbOther(e.target.value)}
-    placeholder="0"
-  />
-</div>
-            <div className="field full">
-              <label>Remarks</label>
-              <textarea
-                value={lhbRemarks}
-                onChange={(e) => setLhbRemarks(e.target.value)}
-                placeholder="Payment remarks"
-              />
-            </div>
-          </div>
+              <button
+                className="blueBtn"
+                onClick={async () => {
+                  await loadLhbHistory(lhbTrip.tripNo);
+                  setShowHistory(!showHistory);
+                }}
+                style={{ background: '#6b7280' }}
+              >
+                📜 {showHistory ? 'HIDE HISTORY' : 'SHOW HISTORY'}
+              </button>
 
-          {/* FINAL CALCULATION */}
-          <div className="marginBox" style={{ marginTop: '15px' }}>
-            <div>
-              <span>Current Balance</span>
-              <strong>₹{money(lhbCurrentTotal())}</strong>
+              <button
+                className="blueBtn"
+                onClick={() => {
+                  const phone = prompt("📱 WhatsApp Number (10 digit):", lhbTrip.driverMobile || "");
+                  if (!phone) return;
+                  if (!/^[0-9]{10}$/.test(phone.trim())) {
+                    alert("❌ Sahi 10-digit mobile number daalein.");
+                    return;
+                  }
+                  sendLHBWhatsApp(lhbTrip, phone.trim());
+                }}
+                style={{ background: '#25D366', borderColor: '#25D366' }}
+              >
+                📱 SEND WHATSAPP
+              </button>
             </div>
-            <div>
-              <span>Cash Paid</span>
-              <strong>₹{money(lhbCash)}</strong>
-            </div>
-            <div>
-              <span>NEFT Paid</span>
-              <strong>₹{money(lhbBank)}</strong>
-            </div>
-                        <div>
-              <span>Challan & Bilty Deduction</span>
-              <strong>₹{money(lhbOther)}</strong>
-            </div>
-            <div>
-              <span>Total Paid</span>
-              <strong>₹{money(lhbPaidTotal())}</strong>
-            </div>
-            <div>
-              <span>Pending Balance</span>
-              <strong style={{ color: '#c62828' }}>₹{money(lhbPending())}</strong>
-            </div>
-          </div>
 
-                   <div className="formButtons">
-            <button
-              className="blueBtn"
-              onClick={() => {
-                setLhbTrip(null);
-                setLhbSearch("");
-                setLhbHalting(0);
-                setLhbDamage(0);
-                setLhbCash(0);
-                setLhbBank(0);
-                setLhbOther(0);
-                setLhbRemarks("");
-              }}
-            >
-              RESET
-            </button>
-            
-            <button className="greenBtn" onClick={handleSaveBalance}>
-              ✅ SAVE BALANCE
-            </button>
-            
-            {/* 🔥 NAYA: WhatsApp Send Button */}
-            <button
-              className="blueBtn"
-              onClick={() => {
-                const phone = prompt(
-                  "📱 WhatsApp Number (10 digit):",
-                  lhbTrip.driverMobile || ""
-                );
-                if (!phone) return;
-                if (!/^[0-9]{10}$/.test(phone.trim())) {
-                  alert("❌ Sahi 10-digit mobile number daalein.");
-                  return;
-                }
-                sendLHBWhatsApp(lhbTrip, phone.trim());
-              }}
-              style={{ background: '#25D366', borderColor: '#25D366' }}
-            >
-              📱 SEND WHATSAPP
-            </button>
+            {/* HISTORY TABLE */}
+            {showHistory && (
+              <div style={{ marginTop: '20px', padding: '15px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                <h4 style={{ color: '#102a43', marginTop: 0 }}>📜 Payment History — {lhbTrip.tripNo}</h4>
+                {lhbHistory.length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                    📭 Is trip ki koi payment history nahi hai.
+                  </div>
+                ) : (
+                  <div className="tableWrapper">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Date</th>
+                          <th>Cash</th>
+                          <th>Bank</th>
+                          <th>Challan</th>
+                          <th>Total Paid</th>
+                          <th>Pending</th>
+                          <th>Remarks</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lhbHistory.map((h, idx) => (
+                          <tr key={h.id}>
+                            <td>{idx + 1}</td>
+                            <td>{formatDate(h.payment_date)}</td>
+                            <td>₹{money(h.cash)}</td>
+                            <td>₹{money(h.bank)}</td>
+                            <td>₹{money(h.challan)}</td>
+                            <td style={{ color: '#16855b', fontWeight: 'bold' }}>₹{money(h.total_paid)}</td>
+                            <td style={{ color: '#c62828', fontWeight: 'bold' }}>₹{money(h.pending)}</td>
+                            <td style={{ fontSize: '11px' }}>{h.remarks || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        </div>
-      )}
-    </>
-  );
-};
+        )}
+      </>
+    );
+  };
 
     // =========================================================
   // POD / DELIVERY MANAGEMENT - FUNCTIONS
