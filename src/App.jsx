@@ -1999,6 +1999,58 @@ const selectTripBilty = (id) => {
 // =========================================================
 // 🔥 UPDATE POD RECEIVED DATE
 // =========================================================
+// =========================================================
+// 🔥 DELETE POD RECEIVED (Reset POD + Payment Due)
+// =========================================================
+const deletePodReceived = async (trip) => {
+  if (!window.confirm(
+    `🗑️ DELETE POD Received?\n\n` +
+    `Trip: ${trip.tripNo}\n` +
+    `Vehicle: ${trip.vehicleNo}\n` +
+    `POD Date: ${formatDate(trip.podReceivedDate)}\n\n` +
+    `⚠️ Isse POD, Payment Due Date sab reset ho jayenge.\n` +
+    `Continue?`
+  )) return;
+
+  try {
+    // 🔥 Same tripNo ki SAARI rows reset karo
+    const tripIdsToUpdate = [];
+    trips.forEach(t => {
+      if (String(t.tripNo) === String(trip.tripNo)) {
+        tripIdsToUpdate.push(t.id);
+      }
+    });
+    if (tripIdsToUpdate.length === 0) {
+      tripIdsToUpdate.push(trip.id);
+    }
+
+    const updateData = {
+      podReceived: false,
+      podReceivedDate: null,
+      paymentDueDate: null,       // 🔥 Payment due bhi reset
+      paymentStatus: null,        // 🔥 Status reset
+      podUpdatedAt: null
+    };
+
+    for (const tId of tripIdsToUpdate) {
+      const { error } = await supabase
+        .from('trips')
+        .update(updateData)
+        .eq('id', tId);
+      
+      if (error) throw error;
+    }
+
+    alert(
+      `✅ POD Received date DELETE ho gayi!\n\n` +
+      `Trip: ${trip.tripNo}\n` +
+      `Ab tum nayi date daal sakte ho.`
+    );
+    await loadAllData();
+  } catch (e) {
+    alert("❌ Error: " + e.message);
+  }
+};
 const updatePodReceived = async (trip, podDate) => {
   if (!podDate) {
     alert("Please POD received date select karein.");
@@ -4358,20 +4410,63 @@ console.log(
   </span>
 </td>
 
-{/* 🔥 NAYA: POD RECEIVED COLUMN */}
+{/* 🔥 POD RECEIVED COLUMN — WITH EDIT & DELETE */}
 <td style={{ textAlign: 'center' }}>
   {item.podReceived ? (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
       <span style={{ 
         background: '#e8f5e9', 
         color: '#16855b', 
         padding: '3px 10px', 
         borderRadius: '12px',
         fontSize: '11px',
-        fontWeight: 'bold'
+        fontWeight: 'bold',
+        whiteSpace: 'nowrap'
       }}>
         ✅ {formatDate(item.podReceivedDate)}
       </span>
+      <div style={{ display: 'flex', gap: '4px' }}>
+        <button
+          onClick={() => {
+            const date = prompt(
+              `✏️ EDIT POD Received Date\n\nTrip: ${item.tripNo}\nVehicle: ${item.vehicleNo}\nCurrent: ${formatDate(item.podReceivedDate)}\n\nNew date (YYYY-MM-DD):`,
+              item.podReceivedDate || new Date().toISOString().slice(0, 10)
+            );
+            if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+              updatePodReceived(item, date);
+            } else if (date) {
+              alert("❌ Sahi date format daalein: YYYY-MM-DD");
+            }
+          }}
+          style={{
+            padding: '3px 8px',
+            background: '#1769aa',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            fontSize: '10px',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          ✏️ EDIT
+        </button>
+        <button
+          onClick={() => deletePodReceived(item)}
+          style={{
+            padding: '3px 8px',
+            background: '#c62828',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            fontSize: '10px',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          🗑️
+        </button>
+      </div>
     </div>
   ) : (
     <button
