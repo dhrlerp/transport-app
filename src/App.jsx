@@ -15853,6 +15853,7 @@ const exportToExcel = (data, filename, headers) => {
   <button onClick={() => setPage("vehicles")}>🚛 Vehicle Master</button>
   <button onClick={() => setPage("bilty")}>🧾 Bilty / CN</button>
 <button onClick={() => setPage("trips")}>📦 LHC / Dispatch</button>
+<button onClick={() => setPage("pod")}>📦 POD / Delivery</button>
   <button onClick={() => setPage("lhb")}>💰 Lorry Hire Balance</button>
   <button onClick={() => setPage("accounts")}>💰 Accounts</button>
   <button onClick={() => setPage("bills")}>🧾 Bills / Invoice</button>
