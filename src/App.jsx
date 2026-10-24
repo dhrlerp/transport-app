@@ -268,6 +268,9 @@ const [showCamera, setShowCamera] = useState(false);
 const [cameraSide, setCameraSide] = useState('front');
 const webcamRef = useRef(null);
 
+  // 🔥 UTR MODAL STATE
+  const [utrModal, setUtrModal] = useState(null);
+
   // ===== LOGIN STATE के बाद ये डालो =====
 const [showResetPassword, setShowResetPassword] = useState(false);
 const [newPassword, setNewPassword] = useState("");
