@@ -10,6 +10,38 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 import * as XLSX from "xlsx";
 import "./App.css";
 
+// 🔥 R2 UPLOAD FUNCTION (API ke through)
+async function uploadToR2(file, folder, fileName) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            file: reader.result,
+            fileName: fileName,
+            fileType: file.type,
+            folder: folder,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!data.success) {
+          throw new Error(data.error || "Upload failed");
+        }
+
+        resolve(data.url);
+      } catch (e) {
+        reject(e);
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 // 🔥 Digital Signature
 const SIGNATURE_NAME = "Gautam Sharma";
@@ -2056,7 +2088,48 @@ const updatePodReceived = async (trip, podDate) => {
     alert("Please POD received date select karein.");
     return;
   }
+// =========================================================
+// 🔥 SAVE UTR NUMBER (Advance / Balance)
+// =========================================================
+const saveUtrNumber = async () => {
+  if (!utrModal) return;
+  if (!utrModal.utr?.trim()) { alert("UTR number enter karein."); return; }
+  if (!utrModal.date) { alert("Date select karein."); return; }
 
+  try {
+    const tripIdsToUpdate = [];
+    trips.forEach(t => {
+      if (String(t.tripNo) === String(utrModal.tripNo)) {
+        tripIdsToUpdate.push(t.id);
+      }
+    });
+    if (tripIdsToUpdate.length === 0) tripIdsToUpdate.push(utrModal.tripId);
+
+    const updateData = utrModal.type === 'ADVANCE' 
+      ? {
+          advanceUtr: utrModal.utr.trim(),
+          advanceUtrDate: utrModal.date,
+        }
+      : {
+          balanceUtr: utrModal.utr.trim(),
+          balanceUtrDate: utrModal.date,
+        };
+
+    for (const tId of tripIdsToUpdate) {
+      const { error } = await supabase
+        .from('trips')
+        .update(updateData)
+        .eq('id', tId);
+      if (error) throw error;
+    }
+
+    alert(`✅ ${utrModal.type} UTR saved!\n\nUTR: ${utrModal.utr}\nDate: ${formatDate(utrModal.date)}`);
+    setUtrModal(null);
+    await loadAllData();
+  } catch (e) {
+    alert("❌ Error: " + e.message);
+  }
+};
   try {
     // 🔥 Same tripNo ki SAARI rows update karo
     const tripIdsToUpdate = [];
@@ -4392,12 +4465,120 @@ console.log(
 
                       <td>₹{money(hire)}</td>
 
-                      <td>₹{money(advance)}</td>
-
-                      <td>
-                        ₹{money(finalBalance)}
-                      </td>
-
+{/* 🔥 ADVANCE + UTR */}
+<td style={{ minWidth: '150px' }}>
+  <div style={{ fontWeight: 'bold' }}>₹{money(advance)}</div>
+  {item.advanceUtr ? (
+    <div style={{ fontSize: '10px', color: '#16855b', marginTop: '3px' }}>
+      <div>✅ {item.advanceUtr}</div>
+      <div style={{ color: '#666' }}>📅 {formatDate(item.advanceUtrDate)}</div>
+      <button
+        onClick={() => setUtrModal({
+          type: 'ADVANCE',
+          tripId: item.id,
+          tripNo: item.tripNo,
+          amount: advance,
+          utr: item.advanceUtr || '',
+          date: item.advanceUtrDate || new Date().toISOString().slice(0, 10),
+        })}
+        style={{
+          marginTop: '3px',
+          padding: '2px 6px',
+          background: '#1769aa',
+          color: 'white',
+          border: 'none',
+          borderRadius: '3px',
+          fontSize: '9px',
+          cursor: 'pointer'
+        }}
+      >
+        ✏️ EDIT
+      </button>
+    </div>
+  ) : (
+    <button
+      onClick={() => setUtrModal({
+        type: 'ADVANCE',
+        tripId: item.id,
+        tripNo: item.tripNo,
+        amount: advance,
+        utr: '',
+        date: new Date().toISOString().slice(0, 10),
+      })}
+      style={{
+        marginTop: '3px',
+        padding: '3px 8px',
+        background: '#c62828',
+        color: 'white',
+        border: 'none',
+        borderRadius: '4px',
+        fontSize: '10px',
+        cursor: 'pointer',
+        fontWeight: 'bold'
+      }}
+    >
+      + UTR
+    </button>
+  )}
+</td>
+                     {/* 🔥 BALANCE + UTR */}
+<td style={{ minWidth: '150px' }}>
+  <div style={{ fontWeight: 'bold', color: finalBalance < 0 ? '#c62828' : '#16855b' }}>
+    ₹{money(finalBalance)}
+  </div>
+  {item.balanceUtr ? (
+    <div style={{ fontSize: '10px', color: '#16855b', marginTop: '3px' }}>
+      <div>✅ {item.balanceUtr}</div>
+      <div style={{ color: '#666' }}>📅 {formatDate(item.balanceUtrDate)}</div>
+      <button
+        onClick={() => setUtrModal({
+          type: 'BALANCE',
+          tripId: item.id,
+          tripNo: item.tripNo,
+          amount: finalBalance,
+          utr: item.balanceUtr || '',
+          date: item.balanceUtrDate || new Date().toISOString().slice(0, 10),
+        })}
+        style={{
+          marginTop: '3px',
+          padding: '2px 6px',
+          background: '#1769aa',
+          color: 'white',
+          border: 'none',
+          borderRadius: '3px',
+          fontSize: '9px',
+          cursor: 'pointer'
+        }}
+      >
+        ✏️ EDIT
+      </button>
+    </div>
+  ) : (
+    <button
+      onClick={() => setUtrModal({
+        type: 'BALANCE',
+        tripId: item.id,
+        tripNo: item.tripNo,
+        amount: finalBalance,
+        utr: '',
+        date: new Date().toISOString().slice(0, 10),
+      })}
+      style={{
+        marginTop: '3px',
+        padding: '3px 8px',
+        background: '#c62828',
+        color: 'white',
+        border: 'none',
+        borderRadius: '4px',
+        fontSize: '10px',
+        cursor: 'pointer',
+        fontWeight: 'bold'
+      }}
+    >
+      + UTR
+    </button>
+  )}
+</td>
                       <td>
                         <strong>
                           {percentage.toFixed(2)}%
@@ -4842,20 +5023,22 @@ Thank You`;
 
       const totalPayment = lhbPaidTotal();
 
-      const updateData = {
-        lhbPayTo: lhbPayTo || "BROKER",
-        lhbHalting: String(lhbHalting || 0),
-        lhbDamage: String(lhbDamage || 0),
-        lhbCash: String(lhbCash || 0),
-        lhbBank: String(lhbBank || 0),
-        lhbOther: String(lhbOther || 0),
-        challanBiltyDeduction: String(lhbOther || 0),
-        lhbRemarks: lhbRemarks || "",
-        lhbPaid: String(totalPayment),
-        lhbPending: String(lhbCurrentTotal() - totalPayment),
-        lhbUpdatedAt: new Date().toISOString()
-      };
-
+       const updateData = {
+    lhbPayTo: lhbPayTo || "BROKER",
+    lhbHalting: String(lhbHalting || 0),
+    lhbDamage: String(lhbDamage || 0),
+    lhbCash: String(lhbCash || 0),
+    lhbBank: String(lhbBank || 0),
+    lhbOther: String(lhbOther || 0),
+    challanBiltyDeduction: String(lhbOther || 0),
+    lhbRemarks: lhbRemarks || "",
+    lhbPaid: String(totalPayment),
+    lhbPending: String(lhbCurrentTotal() - totalPayment),
+    lhbUpdatedAt: new Date().toISOString(),
+    // 🔥 YE 2 LINES ADD KARO
+    balanceUtr: utrModal?.utr?.trim() || "",
+    balanceUtrDate: utrModal?.date || new Date().toISOString().slice(0, 10),
+  };
       try {
         const tripIdsToUpdate = lhbTrip._allTripIds || [lhbTrip.id];
         for (const tId of tripIdsToUpdate) {
@@ -4895,6 +5078,7 @@ Thank You`;
         setLhbBank(0);
         setLhbOther(0);
         setLhbRemarks("");
+        setUtrModal(null);
         setShowHistory(false);
         await loadAllData();
       } catch (e) {
@@ -5326,7 +5510,7 @@ Thank You`;
   // SAVE POD
   // =========================================================
 
-   const savePOD = async () => {
+    const savePOD = async () => {
   if (!podForm.tripId) {
     alert("Please select Trip.");
     return;
@@ -5340,6 +5524,41 @@ Thank You`;
     return;
   }
 
+  // 🔥 R2 UPLOAD START
+  let frontUrl = podForm.documentData || "";
+  let backUrl = podForm.documentDataBack || "";
+
+  // FRONT SIDE R2 PE UPLOAD KARO
+  if (podForm.documentData && podForm.documentData.startsWith("data:")) {
+    try {
+      const frontRes = await fetch(podForm.documentData);
+      const frontBlob = await frontRes.blob();
+      const frontFile = new File([frontBlob], podForm.documentName || "front.jpg", { type: podForm.documentType });
+
+      frontUrl = await uploadToR2(frontFile, "pod", `${podForm.biltyNo}-front-${Date.now()}.jpg`);
+      console.log("✅ Front uploaded to R2:", frontUrl);
+    } catch (e) {
+      alert("❌ Front upload failed: " + e.message);
+      return;
+    }
+  }
+
+  // BACK SIDE R2 PE UPLOAD KARO
+  if (podForm.documentDataBack && podForm.documentDataBack.startsWith("data:")) {
+    try {
+      const backRes = await fetch(podForm.documentDataBack);
+      const backBlob = await backRes.blob();
+      const backFile = new File([backBlob], podForm.documentNameBack || "back.jpg", { type: podForm.documentTypeBack });
+
+      backUrl = await uploadToR2(backFile, "pod", `${podForm.biltyNo}-back-${Date.now()}.jpg`);
+      console.log("✅ Back uploaded to R2:", backUrl);
+    } catch (e) {
+      alert("❌ Back upload failed: " + e.message);
+      return;
+    }
+  }
+  // 🔥 R2 UPLOAD END
+
   const podData = {
     ...podForm,
     shortageAmount: Number(podForm.shortageAmount || 0),
@@ -5348,13 +5567,12 @@ Thank You`;
     // FRONT SIDE
     documentName: podForm.documentName || "",
     documentType: podForm.documentType || "",
-    documentData: podForm.documentData || "",
+    documentData: frontUrl,        // 🔥 R2 URL save karo
     // 🆕 BACK SIDE
     documentNameBack: podForm.documentNameBack || "",
     documentTypeBack: podForm.documentTypeBack || "",
-    documentDataBack: podForm.documentDataBack || "",
+    documentDataBack: backUrl,     // 🔥 R2 URL save karo
   };
-
   try {
     if (editingPOD) {
       let { error } = await supabase.from('pods').update(podData).eq('id', editingPOD);
@@ -14494,6 +14712,97 @@ const getNextMoneyReceiptNumber = () => {
 };
 
 // =========================================================
+// 🔥 UTR UPDATE MODAL
+// =========================================================
+const renderUtrModal = () => {
+  if (!utrModal) return null;
+
+  const isAdvance = utrModal.type === 'ADVANCE';
+
+  return (
+    <div className="printOverlay" onClick={() => setUtrModal(null)}>
+      <div
+        className="printDocument"
+        style={{
+          maxWidth: '450px',
+          margin: '80px auto',
+          padding: '25px',
+          background: 'white',
+          borderRadius: '12px',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.3)'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 style={{ margin: '0 0 5px 0', color: '#102a43' }}>
+          {isAdvance ? '💵 Advance UTR' : '💰 Balance UTR'}
+        </h2>
+        <p style={{ color: '#666', fontSize: '13px', marginBottom: '20px' }}>
+          Trip: <strong>{utrModal.tripNo}</strong> | 
+          Amount: <strong>₹{money(utrModal.amount)}</strong>
+        </p>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>
+            UTR / Transaction Ref No. *
+          </label>
+          <input
+            type="text"
+            value={utrModal.utr}
+            onChange={(e) => setUtrModal(prev => ({ ...prev, utr: e.target.value }))}
+            placeholder="e.g., HDFCN1234567890"
+            autoFocus
+            style={{
+              width: '100%',
+              padding: '12px',
+              border: '2px solid #1769aa',
+              borderRadius: '6px',
+              fontSize: '15px',
+              fontWeight: 'bold',
+              fontFamily: 'monospace'
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '5px', fontSize: '13px' }}>
+            Payment Date *
+          </label>
+          <input
+            type="date"
+            value={utrModal.date}
+            onChange={(e) => setUtrModal(prev => ({ ...prev, date: e.target.value }))}
+            style={{
+              width: '100%',
+              padding: '12px',
+              border: '1px solid #ccc',
+              borderRadius: '6px',
+              fontSize: '15px'
+            }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+          <button
+            className="grayBtn"
+            onClick={() => setUtrModal(null)}
+            style={{ padding: '10px 24px' }}
+          >
+            CANCEL
+          </button>
+          <button
+            className="greenBtn"
+            onClick={saveUtrNumber}
+            style={{ padding: '10px 24px' }}
+          >
+            ✅ SAVE UTR
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// =========================================================
 // PROFESSIONAL MONEY RECEIPT PRINT
 // =========================================================
   // =========================================================
@@ -15686,6 +15995,7 @@ const exportToExcel = (data, filename, headers) => {
       {printMoneyReceipt &&
         renderPrintMoneyReceipt()}
                    {showBillGenerateModal && renderPendingBillModal()}
+                   {utrModal && renderUtrModal()}
       {printBill && renderPrintBill()}
 
       {/* ========================================================= */}
