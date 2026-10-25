@@ -5564,6 +5564,7 @@ Thank You`;
 
   const podData = {
     ...podForm,
+    id: undefined, // Ye line database ko bolegi ki id khud generate kare
     shortageAmount: Number(podForm.shortageAmount || 0),
     damageAmount: Number(podForm.damageAmount || 0),
     claimAmount: Number(podForm.claimAmount || 0),
