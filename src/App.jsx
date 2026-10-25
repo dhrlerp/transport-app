@@ -12514,9 +12514,18 @@ customerData.totalChallanDeduction += challanBiltyDeduction;
                   <label style={{ color: '#888', fontSize: '12px' }}>Received By</label>
                   <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{trackingResult.pod.receivedBy}</div>
                 </div>
-                <div className="field">
-                  <label style={{ color: '#888', fontSize: '12px' }}>Status</label>
-                  <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{trackingResult.pod.status}</div>
+                 {/* 🔥 POD LINKS YAHAN ADD KARO */}
+                <div style={{ gridColumn: 'span 2', marginTop: '10px', display: 'flex', gap: '10px' }}>
+                  {trackingResult.pod.documentData && (
+                    <a href={trackingResult.pod.documentData} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', padding: '10px 15px', display: 'inline-block', background: '#1769aa', color: 'white', borderRadius: '6px', fontWeight: 'bold' }}>
+                      📄 View Front Side
+                    </a>
+                  )}
+                  {trackingResult.pod.documentDataBack && (
+                    <a href={trackingResult.pod.documentDataBack} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', padding: '10px 15px', display: 'inline-block', background: '#16855b', color: 'white', borderRadius: '6px', fontWeight: 'bold' }}>
+                      📄 View Back Side
+                    </a>
+                  )}
                 </div>
               </div>
             ) : (
