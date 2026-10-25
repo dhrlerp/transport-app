@@ -5563,7 +5563,6 @@ Thank You`;
   // 🔥 R2 UPLOAD END
 
   const podData = {
-        id: Date.now(), // 🔥 YE NAYI LINE ADD KARO (Yeh unique ID banayega)
     ...podForm,
     shortageAmount: Number(podForm.shortageAmount || 0),
     damageAmount: Number(podForm.damageAmount || 0),
