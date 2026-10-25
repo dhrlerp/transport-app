@@ -5630,6 +5630,31 @@ Thank You`;
         alert("POD saved successfully.");
       }
     }
+
+        // 🔥 POD SAVE HONE KE BAAD, TRIP MEIN POD RECEIVED UPDATE KARO
+    if (!editingPOD) { // Sirf naya POD save karte waqt update karo
+      try {
+        const podDate = podForm.deliveryDate || new Date().toISOString().slice(0, 10);
+        
+        // Trip table mein same tripNo wali saari rows update karo
+        const { error: tripUpdateError } = await supabase
+          .from('trips')
+          .update({ 
+            podReceived: true,
+            podReceivedDate: podDate,
+            podUpdatedAt: new Date().toISOString()
+          })
+          .eq('tripNo', podForm.tripNo);
+
+        if (tripUpdateError) {
+          console.error("Trip POD update error:", tripUpdateError);
+        } else {
+          console.log("✅ Trip POD Received updated automatically!");
+        }
+      } catch (e) {
+        console.error("Error updating trip POD:", e);
+      }
+    }
     loadAllData();
   } catch (e) {
     alert("❌ Error: " + e.message);
