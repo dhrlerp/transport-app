@@ -5574,6 +5574,10 @@ Thank You`;
     documentDataBack: backUrl,     // 🔥 R2 URL save karo
   };
   try {
+// 🔥 YE 2 LINES YAHAN ADD KARO (try ke theek baad)
+    delete podData.id;
+    if (podData.id) delete podData.id;
+
     if (editingPOD) {
       let { error } = await supabase.from('pods').update(podData).eq('id', editingPOD);
       if (!error) {
