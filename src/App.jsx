@@ -198,6 +198,7 @@ const createEmptyTrip = () => ({
 ewayBillNo: "",          // E-Way Bill Number
   ewayBillExpiry: "",      // E-Way Bill Expiry Date
   materialValue: "",       // Material Value (₹)
+    brokerSlipUrl: "", // 🔥 YE NAYI LINE ADD KARO
 
 });
 
@@ -1889,6 +1890,8 @@ const selectTripBilty = (id) => {
         ewayBillNo: tripForm.ewayBillNo || "",
         ewayBillExpiry: tripForm.ewayBillExpiry || null,
         materialValue: String(tripForm.materialValue || 0),
+                brokerSlipUrl: tripForm.brokerSlipUrl || "", // 🔥 YE LINE ADD KARO
+
       };
 
       try {
@@ -4269,6 +4272,41 @@ console.log(
                 )}
               </strong>
             </div>
+
+                      {/* 🔥 BROKER SLIP UPLOAD SECTION */}
+          <div className="sectionTitle">📄 BROKER SLIP UPLOAD</div>
+          <div className="formGrid">
+            <div className="field full">
+              <label>Broker Slip (PDF / Image)</label>
+              <input 
+                type="file" 
+                accept="image/*,.pdf"
+                onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  try {
+                    alert("Uploading slip to R2...");
+                    // Yahan uploadToR2 function call ho raha hai
+                    const url = await uploadToR2(file, "broker-slips", `broker-${tripForm.tripNo}-${Date.now()}`);
+                    setTripForm(prev => ({ ...prev, brokerSlipUrl: url }));
+                    alert("✅ Broker Slip Uploaded Successfully!");
+                  } catch (err) {
+                    alert("❌ Upload failed: " + err.message);
+                  }
+                }}
+                style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '6px', width: '100%' }}
+              />
+              
+              {/* Agar pehle se slip upload hai toh link dikhao */}
+              {tripForm.brokerSlipUrl && (
+                <div style={{ marginTop: '10px' }}>
+                  <a href={tripForm.brokerSlipUrl} target="_blank" rel="noreferrer" className="blueBtn" style={{ textDecoration: 'none', padding: '8px 15px', display: 'inline-block' }}>
+                    📄 View Uploaded Slip
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
 
             <div>
               <span>Final Balance</span>
