@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const r2 = new S3Client({
   region: "auto",
@@ -15,29 +16,27 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { file, fileName, fileType, folder } = req.body;
+    const { fileName, fileType, folder } = req.body;
 
-    if (!file || !fileName) {
-      return res.status(400).json({ error: "File missing" });
+    if (!fileName) {
+      return res.status(400).json({ error: "File name missing" });
     }
-
-    const base64Data = file.replace(/^data:.*;base64,/, "");
-    const buffer = Buffer.from(base64Data, "base64");
 
     const key = `${folder || "pod"}/${fileName}`;
 
-    await r2.send(new PutObjectCommand({
+    // Ek temporary URL (15 minute ke liye valid) generate karo
+    const command = new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
       Key: key,
-      Body: buffer,
       ContentType: fileType || "image/jpeg",
-    }));
+    });
 
+    const uploadUrl = await getSignedUrl(r2, command, { expiresIn: 900 });
     const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
 
-    return res.status(200).json({ success: true, url: publicUrl });
+    return res.status(200).json({ success: true, uploadUrl, publicUrl });
   } catch (error) {
-    console.error("Upload error:", error);
+    console.error("Presign error:", error);
     return res.status(500).json({ error: error.message });
   }
 }

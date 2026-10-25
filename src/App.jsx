@@ -10,37 +10,33 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 import * as XLSX from "xlsx";
 import "./App.css";
 
-// 🔥 R2 UPLOAD FUNCTION (API ke through)
+// 🔥 R2 UPLOAD FUNCTION (Direct Browser to R2)
 async function uploadToR2(file, folder, fileName) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            file: reader.result,
-            fileName: fileName,
-            fileType: file.type,
-            folder: folder,
-          }),
-        });
-
-        const data = await res.json();
-
-        if (!data.success) {
-          throw new Error(data.error || "Upload failed");
-        }
-
-        resolve(data.url);
-      } catch (e) {
-        reject(e);
-      }
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+  // 1. Vercel API se temporary upload URL lo
+  const response = await fetch("/api/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fileName, fileType: file.type, folder }),
   });
+
+  const data = await response.json();
+  if (!data.success) throw new Error(data.error || "URL generation failed");
+
+  // 2. File ko seedha R2 ke URL par bhejo (Vercel ke server se guzare bina)
+  const uploadResponse = await fetch(data.uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": file.type,
+    },
+    body: file,
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error("R2 Upload failed");
+  }
+
+  // 3. Public URL return karo
+  return data.publicUrl;
 }
 
 // 🔥 Digital Signature
