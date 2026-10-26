@@ -6023,72 +6023,7 @@ Thank You`;
           </div>
         </div>
 
-        {/* =====================================================
-            DELIVERY DETAILS
-        ===================================================== */}
-        <div className="sectionTitle">📦 DELIVERY DETAILS</div>
-
-        <div className="formGrid">
-          <div className="field">
-            <label>Dispatch Date</label>
-            <input
-              type="date"
-              name="dispatchDate"
-              value={podForm.dispatchDate}
-              onChange={updatePOD}
-            />
-          </div>
-          <div className="field">
-            <label>Delivery Date *</label>
-            <input
-              type="date"
-              name="deliveryDate"
-              value={podForm.deliveryDate}
-              onChange={updatePOD}
-            />
-          </div>
-          <div className="field">
-            <label>POD Number</label>
-            <input
-              name="podNo"
-              value={podForm.podNo}
-              onChange={updatePOD}
-              placeholder={getNextPODNumber()}
-            />
-          </div>
-          <div className="field">
-            <label>Status</label>
-            <select name="status" value={podForm.status} onChange={updatePOD}>
-              <option>IN TRANSIT</option>
-              <option>OUT FOR DELIVERY</option>
-              <option>DELIVERED</option>
-              <option>SHORTAGE</option>
-              <option>DAMAGE</option>
-              <option>DELIVERED WITH CLAIM</option>
-              <option>CANCELLED</option>
-            </select>
-          </div>
-          <div className="field">
-            <label>Received By *</label>
-            <input
-              name="receivedBy"
-              value={podForm.receivedBy}
-              onChange={updatePOD}
-              placeholder="Receiver Name"
-            />
-          </div>
-          <div className="field">
-            <label>Receiver Mobile</label>
-            <input
-              name="receiverMobile"
-              value={podForm.receiverMobile}
-              onChange={updatePOD}
-              placeholder="Mobile Number"
-            />
-          </div>
-        </div>
-
-      
+             
         {/* =====================================================
             POD SCAN / UPLOAD - FRONT & BACK
         ===================================================== */}
