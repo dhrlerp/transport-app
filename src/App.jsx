@@ -5553,11 +5553,7 @@ Thank You`;
     return;
   }
   
-  if (!podForm.deliveryDate) {
-    alert("Please enter Delivery Date.");
-    return;
-  }
-
+  
   // 🔥 R2 UPLOAD START
   let frontUrl = podForm.documentData || "";
   let backUrl = podForm.documentDataBack || "";
@@ -5603,6 +5599,7 @@ Thank You`;
         id: undefined,  // 🔥 YE LINE SABSE PEHLE HONI CHAHIYE
     ...podForm,
         podNo: autoPodNo, // 🔥 Ye line update karo
+            deliveryDate: podForm.deliveryDate || new Date().toISOString().slice(0, 10), // 🔥 Ye line add karo
 
 
     // FRONT SIDE
