@@ -5599,8 +5599,7 @@ Thank You`;
         id: undefined,  // 🔥 YE LINE SABSE PEHLE HONI CHAHIYE
     ...podForm,
         podNo: autoPodNo, // 🔥 Ye line update karo
-            deliveryDate: podForm.deliveryDate || new Date().toISOString().slice(0, 10), // 🔥 Ye line add karo
-
+    deliveryDate: autoDeliveryDate,
 
     // FRONT SIDE
     documentName: podForm.documentName || "",
