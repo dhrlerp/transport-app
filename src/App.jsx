@@ -5595,6 +5595,8 @@ Thank You`;
     const nextNumber = pods.length + 1;
     autoPodNo = `POD-${year}-${String(nextNumber).padStart(5, "0")}`;
   }
+
+    console.log("🔥 POD DATA SENDING:", JSON.stringify(podData, null, 2));
   const podData = {
         id: undefined,  // 🔥 YE LINE SABSE PEHLE HONI CHAHIYE
     ...podForm,
