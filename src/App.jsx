@@ -5609,6 +5609,10 @@ Thank You`;
     podNo: autoPodNo,
     deliveryDate: autoDeliveryDate,
 
+// 🔥 YE 3 LINES YAHAN ADD KARO (Khali "" ko 0 banane ke liye)
+    shortageAmount: Number(podForm.shortageAmount || 0),
+    damageAmount: Number(podForm.damageAmount || 0),
+    claimAmount: Number(podForm.claimAmount || 0),
 
     // FRONT SIDE
     documentName: podForm.documentName || "",
