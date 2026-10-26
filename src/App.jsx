@@ -5599,9 +5599,7 @@ Thank You`;
   const podData = {
         id: undefined,  // 🔥 YE LINE SABSE PEHLE HONI CHAHIYE
     ...podForm,
-    shortageAmount: Number(podForm.shortageAmount || 0),
-    damageAmount: Number(podForm.damageAmount || 0),
-    claimAmount: Number(podForm.claimAmount || 0),
+
     // FRONT SIDE
     documentName: podForm.documentName || "",
     documentType: podForm.documentType || "",
@@ -6010,14 +6008,7 @@ Thank You`;
             <label>To</label>
             <input value={podForm.to} readOnly style={{ background: '#f0f0f0' }} />
           </div>
-          <div className="field">
-            <label>Consignor</label>
-            <input value={podForm.consignor} readOnly style={{ background: '#f0f0f0' }} />
-          </div>
-          <div className="field">
-            <label>Consignee</label>
-            <input value={podForm.consignee} readOnly style={{ background: '#f0f0f0' }} />
-          </div>
+          
           <div className="field">
             <label>Vehicle No.</label>
             <input value={podForm.vehicleNo} readOnly style={{ background: '#f0f0f0' }} />
@@ -6097,44 +6088,7 @@ Thank You`;
           </div>
         </div>
 
-        {/* =====================================================
-            SHORTAGE / DAMAGE / CLAIM
-        ===================================================== */}
-        <div className="sectionTitle">💰 SHORTAGE / DAMAGE / CLAIM</div>
-
-        <div className="formGrid">
-          <div className="field">
-            <label>Shortage Amount (₹)</label>
-            <input
-              type="number"
-              name="shortageAmount"
-              value={podForm.shortageAmount}
-              onChange={updatePOD}
-              placeholder="0"
-            />
-          </div>
-          <div className="field">
-            <label>Damage Amount (₹)</label>
-            <input
-              type="number"
-              name="damageAmount"
-              value={podForm.damageAmount}
-              onChange={updatePOD}
-              placeholder="0"
-            />
-          </div>
-          <div className="field">
-            <label>Claim Amount (₹)</label>
-            <input
-              type="number"
-              name="claimAmount"
-              value={podForm.claimAmount}
-              onChange={updatePOD}
-              placeholder="0"
-            />
-          </div>
-        </div>
-
+      
         {/* =====================================================
             POD SCAN / UPLOAD - FRONT & BACK
         ===================================================== */}
@@ -6332,24 +6286,7 @@ Thank You`;
           </div>
         </div>
 
-        {/* =====================================================
-            REMARKS
-        ===================================================== */}
-        <div className="sectionTitle">📝 REMARKS</div>
-
-        <div className="formGrid">
-          <div className="field full">
-            <label>Delivery / POD Remarks</label>
-            <textarea
-              name="remarks"
-              value={podForm.remarks}
-              onChange={updatePOD}
-              placeholder="Shortage, damage, receiver remarks, special instructions..."
-            />
-          </div>
-        </div>
-
-        {/* =====================================================
+              {/* =====================================================
             BUTTONS
         ===================================================== */}
         <div className="formButtons">
