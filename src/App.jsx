@@ -5552,10 +5552,7 @@ Thank You`;
     alert("Please select Trip.");
     return;
   }
-  if (!podForm.podNo.trim()) {
-    alert("Please enter POD Number.");
-    return;
-  }
+  
   if (!podForm.deliveryDate) {
     alert("Please enter Delivery Date.");
     return;
@@ -5595,10 +5592,18 @@ Thank You`;
     }
   }
   // 🔥 R2 UPLOAD END
-
+  // 🔥 POD NUMBER AUTO GENERATE
+  let autoPodNo = podForm.podNo;
+  if (!autoPodNo || autoPodNo.trim() === "") {
+    const year = new Date().getFullYear();
+    const nextNumber = pods.length + 1;
+    autoPodNo = `POD-${year}-${String(nextNumber).padStart(5, "0")}`;
+  }
   const podData = {
         id: undefined,  // 🔥 YE LINE SABSE PEHLE HONI CHAHIYE
     ...podForm,
+        podNo: autoPodNo, // 🔥 Ye line update karo
+
 
     // FRONT SIDE
     documentName: podForm.documentName || "",
