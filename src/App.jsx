@@ -5587,7 +5587,8 @@ Thank You`;
       return;
     }
   }
-  // 🔥 R2 UPLOAD END
+ // 🔥 R2 UPLOAD END
+
   // 🔥 POD NUMBER AUTO GENERATE
   let autoPodNo = podForm.podNo;
   if (!autoPodNo || autoPodNo.trim() === "") {
@@ -5596,12 +5597,18 @@ Thank You`;
     autoPodNo = `POD-${year}-${String(nextNumber).padStart(5, "0")}`;
   }
 
-    console.log("🔥 POD DATA SENDING:", JSON.stringify(podData, null, 2));
+  // 🔥 DELIVERY DATE AUTO GENERATE (YE LINES MISSING THI)
+  let autoDeliveryDate = podForm.deliveryDate;
+  if (!autoDeliveryDate || autoDeliveryDate.trim() === "") {
+    autoDeliveryDate = new Date().toISOString().slice(0, 10);
+  }
+
   const podData = {
-        id: undefined,  // 🔥 YE LINE SABSE PEHLE HONI CHAHIYE
+    id: undefined,
     ...podForm,
-        podNo: autoPodNo, // 🔥 Ye line update karo
+    podNo: autoPodNo,
     deliveryDate: autoDeliveryDate,
+
 
     // FRONT SIDE
     documentName: podForm.documentName || "",
