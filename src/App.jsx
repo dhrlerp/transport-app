@@ -2297,7 +2297,7 @@ let selectedBilties = Array.isArray(item.selectedBilties)
     );
   };
 
-  // =========================================================
+    // =========================================================
   // DASHBOARD
   // =========================================================
 
@@ -2361,39 +2361,46 @@ let selectedBilties = Array.isArray(item.selectedBilties)
             </div>
           </div>
 
-        <div className="dashboardCard" onClick={() => setPage("trips")}>
-  <div className="dashIcon">📦</div>
-  <div>
-    <h3>{trips.length}</h3>
-    <p>Total LHC</p>
-  </div>
-</div>
-
-          <div className="dashboardCard">
-            <div className="dashIcon">₹</div>
+          <div className="dashboardCard" onClick={() => setPage("trips")}>
+            <div className="dashIcon">📦</div>
             <div>
-              <h3>₹{money(totalBookingFreight)}</h3>
-              <p>Booking Freight</p>
+              <h3>{trips.length}</h3>
+              <p>Total LHC</p>
             </div>
           </div>
 
-          <div className="dashboardCard">
-            <div className="dashIcon">🚚</div>
-            <div>
-              <h3>₹{money(totalTripFreight)}</h3>
-              <p>Trip Freight</p>
-            </div>
-          </div>
+          {/* 🔥 SIRF ADMIN KE LIYE PAISE WALE CARDS (Yahan se shuru) */}
+          {userRole === "ADMIN" && (
+            <>
+              <div className="dashboardCard">
+                <div className="dashIcon">₹</div>
+                <div>
+                  <h3>₹{money(totalBookingFreight)}</h3>
+                  <p>Booking Freight</p>
+                </div>
+              </div>
 
-          <div className="dashboardCard">
-            <div className="dashIcon">📈</div>
-            <div>
-              <h3>₹{money(estimatedMargin)}</h3>
-              <p>
-                Margin {marginPercent.toFixed(2)}%
-              </p>
-            </div>
-          </div>
+              <div className="dashboardCard">
+                <div className="dashIcon">🚚</div>
+                <div>
+                  <h3>₹{money(totalTripFreight)}</h3>
+                  <p>Trip Freight</p>
+                </div>
+              </div>
+
+              <div className="dashboardCard">
+                <div className="dashIcon">📈</div>
+                <div>
+                  <h3>₹{money(estimatedMargin)}</h3>
+                  <p>
+                    Margin {marginPercent.toFixed(2)}%
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+          {/* 🔥 SIRF ADMIN KE LIYE PAISE WALE CARDS (Yahan tak) */}
+          
         </div>
 
         <div className="card">
@@ -2429,10 +2436,10 @@ let selectedBilties = Array.isArray(item.selectedBilties)
             </button>
 
             <button className="greenBtn" onClick={newTrip}>
-  + CREATE LHC
-</button>
+              + CREATE LHC
+            </button>
 
-             <button 
+            <button 
               className="blueBtn" 
               onClick={backupData}
               style={{ background: '#6b7280' }}
@@ -2674,14 +2681,9 @@ let selectedBilties = Array.isArray(item.selectedBilties)
                           EDIT
                         </button>
 
-                        <button
-                          className="deleteBtn"
-                          onClick={() =>
-                            deleteCustomer(item.id)
-                          }
-                        >
-                          DELETE
-                        </button>
+                        {userRole === "ADMIN" && (
+  <button className="deleteBtn" onClick={() => deleteCustomer(item.id)}>DELETE</button>
+)}
                       </td>
                     </tr>
                   )
@@ -3034,14 +3036,10 @@ const deleteVehicle = async (id) => {
                           EDIT
                         </button>
 
-                        <button
-                          className="deleteBtn"
-                          onClick={() =>
-                            deleteVehicle(item.id)
-                          }
-                        >
-                          DELETE
-                        </button>
+                        // Ab aisa karo:
+{userRole === "ADMIN" && (
+  <button className="deleteBtn" onClick={() => deleteVehicle(item.id)}>DELETE</button>
+)}
                       </td>
                     </tr>
                   )
@@ -3733,14 +3731,10 @@ console.log(
                         PRINT
                       </button>
 
-                      <button
-                        className="deleteBtn"
-                        onClick={() =>
-                          deleteBilty(item.id)
-                        }
-                      >
-                        DELETE
-                      </button>
+                      // Ab aisa karo:
+{userRole === "ADMIN" && (
+  <button className="deleteBtn" onClick={() => deleteBilty(item.id)}>DELETE</button>
+)}
                     </td>
                   </tr>
                 ))}
@@ -4734,14 +4728,10 @@ console.log(
                           PRINT
                         </button>
 
-                        <button
-                          className="deleteBtn"
-                          onClick={() =>
-                            deleteTrip(item.id)
-                          }
-                        >
-                          DELETE
-                        </button>
+                        // Ab aisa karo:
+{userRole === "ADMIN" && (
+  <button className="deleteBtn" onClick={() => deleteTrip(item.id)}>DELETE</button>
+)}
                       </td>
                     </tr>
                   );
@@ -6329,7 +6319,10 @@ Thank You`;
                         📄 Back
                       </button>
                     )}
-                    <button className="deleteBtn" onClick={() => deletePOD(item.id)}>DELETE</button>
+                    // Ab aisa karo:
+{userRole === "ADMIN" && (
+  <button className="deleteBtn" onClick={() => deletePOD(item.id)}>DELETE</button>
+)}
                   </td>
                 </tr>
               ))}
@@ -8841,15 +8834,10 @@ Thank You`;
                           </button>
                         )}
 
-                        <button
-                          className="deleteBtn"
-                          onClick={() =>
-                            deleteAccount(item.id)
-                          }
-                        >
-                          DELETE
-                        </button>
-
+                       // Ab aisa karo:
+{userRole === "ADMIN" && (
+  <button className="deleteBtn" onClick={() => deleteAccount(item.id)}>DELETE</button>
+)}
                       </td>
 
                     </tr>
@@ -9702,7 +9690,10 @@ const renderBillSubmissionPage = () => {
                     <td>
                       <button className="editBtn" onClick={() => editBill(bill)}>EDIT</button>
                       <button className="printBtn" onClick={() => setPrintBill(bill)}>PRINT</button>
-                      <button className="deleteBtn" onClick={() => deleteBill(bill.id)}>DELETE</button>
+                     // Ab aisa karo:
+{userRole === "ADMIN" && (
+  <button className="deleteBtn" onClick={() => deleteBill(bill.id)}>DELETE</button>
+)}
                     </td>
                   </tr>
                 ))}
@@ -13140,7 +13131,9 @@ customerData.totalChallanDeduction += challanBiltyDeduction;
                     </td>
                     <td>
                       <button className="editBtn" onClick={() => editVisit(item)}>EDIT</button>
-                      <button className="deleteBtn" onClick={() => deleteVisit(item.id)}>DELETE</button>
+{userRole === "ADMIN" && (
+  <button className="deleteBtn" onClick={() => deleteVisit(item.id)}>DELETE</button>
+)}
                     </td>
                   </tr>
                 ))}
@@ -15795,32 +15788,34 @@ const exportToExcel = (data, filename, headers) => {
   </div>
 </header>
       <div className="layout">
-        <aside className="sidebar">
-  <button
-    className={page === "dashboard" ? "navActive" : ""}
-    onClick={() => { setPage("dashboard"); goTop(); }}
-  >
-    🏠 Dashboard
-  </button>
+              <aside className="sidebar">
+          <button className={page === "dashboard" ? "navActive" : ""} onClick={() => { setPage("dashboard"); goTop(); }}>
+            🏠 Dashboard
+          </button>
 
-  <button onClick={logout} style={{ background: '#c62828', color: 'white', marginTop: '20px' }}>
-    🚪 LOGOUT
-  </button>
+          <button onClick={logout} style={{ background: '#c62828', color: 'white', marginTop: '20px' }}>
+            🚪 LOGOUT
+          </button>
 
-  {/* ===== SABHI PAGES (HAR ROLE KE LIYE) ===== */}
-  <button onClick={() => setPage("customers")}>👥 Customer Master</button>
-  <button onClick={() => setPage("vehicles")}>🚛 Vehicle Master</button>
-  <button onClick={() => setPage("bilty")}>🧾 Bilty / CN</button>
-<button onClick={() => setPage("trips")}>📦 LHC / Dispatch</button>
-<button onClick={() => setPage("pod")}>📦 POD / Delivery</button>
-  <button onClick={() => setPage("lhb")}>💰 Lorry Hire Balance</button>
-  <button onClick={() => setPage("accounts")}>💰 Accounts</button>
-  <button onClick={() => setPage("bills")}>🧾 Bills / Invoice</button>
-  <button onClick={() => setPage("billSubmission")}>📤 Bill Submission</button>
-  <button onClick={() => setPage("reports")}>📊 Reports</button>
-  <button onClick={() => setPage("tracking")}>📦 Consignment Tracking</button>
-  <button onClick={() => setPage("dailyTracking")}>🚚 Daily Tracking</button>  {/* 🔥 YEH ADD KARO */}
-    <button onClick={() => setPage("customerVisits")}>📋 Customer Visits</button>
+          {/* 🔥 SABHI PAGES (Staff aur Admin dono ke liye) */}
+          <button onClick={() => setPage("customers")}>👥 Customer Master</button>
+          <button onClick={() => setPage("vehicles")}>🚛 Vehicle Master</button>
+          <button onClick={() => setPage("bilty")}>🧾 Bilty / CN</button>
+          <button onClick={() => setPage("trips")}>📦 LHC / Dispatch</button>
+          <button onClick={() => setPage("lhb")}>💰 Lorry Hire Balance</button>
+          <button onClick={() => setPage("accounts")}>💰 Accounts</button>
+          <button onClick={() => setPage("bills")}>🧾 Bills / Invoice</button>
+          <button onClick={() => setPage("billSubmission")}>📤 Bill Submission</button>
+          <button onClick={() => setPage("pod")}>📦 POD / Delivery</button>
+          <button onClick={() => setPage("customerVisits")}>📋 Customer Visits</button>
+          <button onClick={() => setPage("dailyTracking")}>🚚 Daily Tracking</button>
+          <button onClick={() => setPage("tracking")}>📦 Consignment Tracking</button>
+
+          {/* 🔥 SIRF ADMIN KE LIYE REPORT PAGE */}
+          {userRole === "ADMIN" && (
+            <button onClick={() => setPage("reports")}>📊 Reports</button>
+          )}
+      
 
 </aside>
 <main className="content">
