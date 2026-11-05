@@ -2613,6 +2613,7 @@ let selectedBilties = Array.isArray(item.selectedBilties)
           </div>
         </div>
 
+        
         <div className="card">
           <div className="listHeader">
             <div>
@@ -3060,7 +3061,7 @@ const deleteVehicle = async (id) => {
 
   
 
- // =========================================================
+// =========================================================
 // BILTY PAGE
 // =========================================================
 
@@ -3087,20 +3088,21 @@ const renderBiltyPage = () => {
       type === "BOTH"
     );
   });
-console.log(
-  "CUSTOMER PARTY TYPES:",
-  customers.map((item) => ({
-    name: item.name,
-    partyType: item.partyType,
-    type: typeof item.partyType,
-  }))
-);
 
   const filteredBilties = bilties.filter((item) =>
     `${item.bilty} ${item.consignor} ${item.consignee} ${item.vehicle} ${item.pickup} ${item.delivery}`
       .toLowerCase()
       .includes(biltySearch.toLowerCase())
   );
+
+  // 🔥 STAFF KE LIYE SEARCH RESULT
+  const staffFilteredBilties = biltySearch.trim() === "" 
+    ? [] 
+    : bilties.filter((item) => 
+        String(item.bilty || "").toLowerCase().includes(biltySearch.toLowerCase()) ||
+        String(item.vehicle || "").toLowerCase().includes(biltySearch.toLowerCase())
+      );
+
     return (
       <>
         <div className="pageTitle">
@@ -3113,6 +3115,7 @@ console.log(
           </p>
         </div>
 
+        {/* ================= FORM SECTION ================= */}
         <div className="card">
           <div className="biltyTop">
             <div className="field">
@@ -3532,101 +3535,101 @@ console.log(
               </button>
             )}
 
-                      <div className="sectionTitle">🚚 E-WAY BILL & MATERIAL VALUE</div>
+            <div className="sectionTitle">🚚 E-WAY BILL & MATERIAL VALUE</div>
 
-<div className="formGrid">
-  <div className="field">
-    <label>Material Value (₹)</label>
-    <input
-      type="number"
-      name="materialValue"
-      value={biltyForm.materialValue || ""}
-      onChange={updateBilty}
-      placeholder="e.g., 500000"
-    />
-  </div>
-</div>
+            <div className="formGrid">
+              <div className="field">
+                <label>Material Value (₹)</label>
+                <input
+                  type="number"
+                  name="materialValue"
+                  value={biltyForm.materialValue || ""}
+                  onChange={updateBilty}
+                  placeholder="e.g., 500000"
+                />
+              </div>
+            </div>
 
-{/* 🔥 MULTI E-WAY BILL */}
-<div className="sectionTitle" style={{ background: '#c62828', color: 'white', marginTop: '10px' }}>
-  📄 MULTI E-WAY BILL
-</div>
+            {/* 🔥 MULTI E-WAY BILL */}
+            <div className="sectionTitle" style={{ background: '#c62828', color: 'white', marginTop: '10px' }}>
+              📄 MULTI E-WAY BILL
+            </div>
 
-<div className="formGrid">
-  <div className="field full">
-    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
-      <strong>E-Way Bill Details</strong>
-      <button
-        type="button"
-        className="blueBtn"
-        onClick={() => {
-          setBiltyForm(prev => ({
-            ...prev,
-            ewayBills: [...(prev.ewayBills || []), { no: "", expiry: "" }]
-          }));
-        }}
-        style={{ padding: '4px 12px', fontSize: '12px' }}
-      >
-        + ADD E-WAY BILL
-      </button>
-    </div>
+            <div className="formGrid">
+              <div className="field full">
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
+                  <strong>E-Way Bill Details</strong>
+                  <button
+                    type="button"
+                    className="blueBtn"
+                    onClick={() => {
+                      setBiltyForm(prev => ({
+                        ...prev,
+                        ewayBills: [...(prev.ewayBills || []), { no: "", expiry: "" }]
+                      }));
+                    }}
+                    style={{ padding: '4px 12px', fontSize: '12px' }}
+                  >
+                    + ADD E-WAY BILL
+                  </button>
+                </div>
 
-    {(biltyForm.ewayBills || []).map((item, index) => (
-      <div key={index} style={{ 
-        display: 'flex', 
-        gap: '10px', 
-        alignItems: 'center',
-        marginBottom: '8px',
-        padding: '8px',
-        border: '1px solid #ddd',
-        borderRadius: '6px',
-        background: '#f9f9f9'
-      }}>
-        <div style={{ flex: 1 }}>
-          <input
-            value={item.no || ""}
-            onChange={(e) => {
-              const newEwayBills = [...(biltyForm.ewayBills || [])];
-              newEwayBills[index] = { ...newEwayBills[index], no: e.target.value };
-              setBiltyForm(prev => ({ ...prev, ewayBills: newEwayBills }));
-            }}
-            placeholder="E-Way Bill No."
-            style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #ccc' }}
-          />
-        </div>
-        <div style={{ flex: 1 }}>
-          <input
-            type="date"
-            value={item.expiry || ""}
-            onChange={(e) => {
-              const newEwayBills = [...(biltyForm.ewayBills || [])];
-              newEwayBills[index] = { ...newEwayBills[index], expiry: e.target.value };
-              setBiltyForm(prev => ({ ...prev, ewayBills: newEwayBills }));
-            }}
-            style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #ccc' }}
-          />
-        </div>
-        <button
-          type="button"
-          className="deleteBtn"
-          onClick={() => {
-            setBiltyForm(prev => ({
-              ...prev,
-              ewayBills: (prev.ewayBills || []).filter((_, i) => i !== index)
-            }));
-          }}
-          style={{ padding: '4px 10px', fontSize: '12px' }}
-        >
-          ✕
-        </button>
-      </div>
-    ))}
-    
-    <small style={{ color: '#666', fontSize: '11px' }}>
-      💡 Multiple E-Way Bills add kar sakte hain (e.g., different vehicles ke liye)
-    </small>
-  </div>
-</div>
+                {(biltyForm.ewayBills || []).map((item, index) => (
+                  <div key={index} style={{ 
+                    display: 'flex', 
+                    gap: '10px', 
+                    alignItems: 'center',
+                    marginBottom: '8px',
+                    padding: '8px',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    background: '#f9f9f9'
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <input
+                        value={item.no || ""}
+                        onChange={(e) => {
+                          const newEwayBills = [...(biltyForm.ewayBills || [])];
+                          newEwayBills[index] = { ...newEwayBills[index], no: e.target.value };
+                          setBiltyForm(prev => ({ ...prev, ewayBills: newEwayBills }));
+                        }}
+                        placeholder="E-Way Bill No."
+                        style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #ccc' }}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <input
+                        type="date"
+                        value={item.expiry || ""}
+                        onChange={(e) => {
+                          const newEwayBills = [...(biltyForm.ewayBills || [])];
+                          newEwayBills[index] = { ...newEwayBills[index], expiry: e.target.value };
+                          setBiltyForm(prev => ({ ...prev, ewayBills: newEwayBills }));
+                        }}
+                        style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #ccc' }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="deleteBtn"
+                      onClick={() => {
+                        setBiltyForm(prev => ({
+                          ...prev,
+                          ewayBills: (prev.ewayBills || []).filter((_, i) => i !== index)
+                        }));
+                      }}
+                      style={{ padding: '4px 10px', fontSize: '12px' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                
+                <small style={{ color: '#666', fontSize: '11px' }}>
+                  💡 Multiple E-Way Bills add kar sakte hain (e.g., different vehicles ke liye)
+                </small>
+              </div>
+            </div>
 
             <button
               className="greenBtn"
@@ -3639,119 +3642,182 @@ console.log(
           </div>
         </div>
 
-        <div className="card">
-          <div className="listHeader">
-            <div>
-              <h2>Bilty List</h2>
-              <p>Total: {bilties.length}</p>
+        {/* =====================================================
+            ADMIN KE LIYE FULL LIST
+        ===================================================== */}
+        {userRole === "ADMIN" && (
+          <div className="card">
+            <div className="listHeader">
+              <div>
+                <h2>Bilty List</h2>
+                <p>Total: {bilties.length}</p>
+              </div>
+
+              <input
+                className="search"
+                placeholder="Search Bilty / Party / Vehicle..."
+                value={biltySearch}
+                onChange={(e) =>
+                  setBiltySearch(e.target.value)
+                }
+              />
             </div>
 
-            <input
-              className="search"
-              placeholder="Search Bilty / Party / Vehicle..."
-              value={biltySearch}
-              onChange={(e) =>
-                setBiltySearch(e.target.value)
-              }
-            />
-          </div>
-
-          <div className="tableWrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Bilty No.</th>
-                  <th>Date</th>
-                  <th>C/NOR</th>
-                  <th>C/NEE</th>
-                  <th>From</th>
-                  <th>To</th>
-                  <th>Vehicle</th>
-                  <th>Booking Freight</th>
-                  <th>E-Way Bill</th>
-                  <th>Material Value</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredBilties.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <strong>{item.bilty}</strong>
-                    </td>
-
-                    <td>{formatDate(item.date)}</td>
-
-                    <td>{item.consignor}</td>
-
-                    <td>{item.consignee}</td>
-
-                    <td>{item.pickup}</td>
-
-                    <td>{item.delivery}</td>
-
-                    <td>{item.vehicle}</td>
-
-                    <td>
-                      ₹{money(item.freight)}
-                    </td>
-                     <td>
-  {item.ewayBills && item.ewayBills.length > 0 ? (
-    <div>
-      {item.ewayBills.map((ewb, idx) => (
-        <div key={idx} style={{ fontSize: '10px' }}>
-          {ewb.no || "-"} 
-          {ewb.expiry ? ` (${formatDate(ewb.expiry)})` : ""}
-        </div>
-      ))}
-    </div>
-  ) : (
-    item.ewayBillNo || "-"
-  )}
-</td>
-                    <td>₹{money(item.materialValue)}</td>
-
-                    <td>
-                      <button
-                        className="editBtn"
-                        onClick={() =>
-                          editBilty(item)
-                        }
-                      >
-                        EDIT
-                      </button>
-
-                      <button
-                        className="printBtn"
-                        onClick={() =>
-                          setPrintBilty(item)
-                        }
-                      >
-                        PRINT
-                      </button>
-
-                      // Ab aisa karo:
-{userRole === "ADMIN" && (
-  <button className="deleteBtn" onClick={() => deleteBilty(item.id)}>DELETE</button>
-)}
-                    </td>
+            <div className="tableWrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Bilty No.</th>
+                    <th>Date</th>
+                    <th>C/NOR</th>
+                    <th>C/NEE</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Vehicle</th>
+                    <th>Booking Freight</th>
+                    <th>E-Way Bill</th>
+                    <th>Material Value</th>
+                    <th>Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
 
-            {filteredBilties.length === 0 && (
-              <div className="empty">
-                No Bilty found.
+                <tbody>
+                  {filteredBilties.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <strong>{item.bilty}</strong>
+                      </td>
+
+                      <td>{formatDate(item.date)}</td>
+
+                      <td>{item.consignor}</td>
+
+                      <td>{item.consignee}</td>
+
+                      <td>{item.pickup}</td>
+
+                      <td>{item.delivery}</td>
+
+                      <td>{item.vehicle}</td>
+
+                      <td>
+                        ₹{money(item.freight)}
+                      </td>
+                      <td>
+                        {item.ewayBills && item.ewayBills.length > 0 ? (
+                          <div>
+                            {item.ewayBills.map((ewb, idx) => (
+                              <div key={idx} style={{ fontSize: '10px' }}>
+                                {ewb.no || "-"} 
+                                {ewb.expiry ? ` (${formatDate(ewb.expiry)})` : ""}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          item.ewayBillNo || "-"
+                        )}
+                      </td>
+                      <td>₹{money(item.materialValue)}</td>
+
+                      <td>
+                        <button
+                          className="editBtn"
+                          onClick={() =>
+                            editBilty(item)
+                          }
+                        >
+                          EDIT
+                        </button>
+
+                        <button
+                          className="printBtn"
+                          onClick={() =>
+                            setPrintBilty(item)
+                          }
+                        >
+                          PRINT
+                        </button>
+
+                        {userRole === "ADMIN" && (
+                          <button className="deleteBtn" onClick={() => deleteBilty(item.id)}>DELETE</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {filteredBilties.length === 0 && (
+                <div className="empty">
+                  No Bilty found.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* =====================================================
+            STAFF KE LIYE SIRF SEARCH BAR
+        ===================================================== */}
+        {userRole === "STAFF" && (
+          <div className="card">
+            <div className="listHeader">
+              <div>
+                <h2>Search Bilty</h2>
+                <p>Gaadi Number ya Bilty Number daalein</p>
+              </div>
+              <input
+                className="search"
+                placeholder="🔍 Gaadi Number / Bilty Number..."
+                value={biltySearch}
+                onChange={(e) => setBiltySearch(e.target.value)}
+              />
+            </div>
+
+            {biltySearch.trim() !== "" && (
+              <div className="tableWrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Bilty No.</th>
+                      <th>Date</th>
+                      <th>Vehicle</th>
+                      <th>From - To</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {staffFilteredBilties.length > 0 ? (
+                      staffFilteredBilties.map((item) => (
+                        <tr key={item.id}>
+                          <td><strong>{item.bilty}</strong></td>
+                          <td>{formatDate(item.date)}</td>
+                          <td>{item.vehicle}</td>
+                          <td>{item.pickup} → {item.delivery}</td>
+                          <td>{item.status}</td>
+                          <td>
+                            <button className="editBtn" onClick={() => editBilty(item)}>EDIT</button>
+                            <button className="printBtn" onClick={() => setPrintBilty(item)}>PRINT</button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="6" style={{ textAlign: "center" }}>
+                          ❌ Koi Bilty nahi mili is number se.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
-        </div>
+        )}
       </>
     );
   };
-
 // =========================================================
   // TRIP PAGE
   // =========================================================
