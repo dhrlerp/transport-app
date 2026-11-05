@@ -3818,9 +3818,1083 @@ const renderBiltyPage = () => {
       </>
     );
   };
-{!hideListForStaff && filteredTrips.length === 0 && (
-  <div className="empty">No Trip found.</div>
+// =========================================================
+  // TRIP PAGE
+  // =========================================================
+
+  const renderTripPage = () => {
+    const filteredTrips = trips.filter((item) =>
+      `${item.tripNo} ${item.biltyNo} ${item.vehicleNo} ${item.brokerName} ${item.from} ${item.to} ${item.driverName}`
+        .toLowerCase()
+        .includes(tripSearch.toLowerCase())
+    );
+
+    const podFilteredTrips = podReceivedSearch.trim() 
+  ? filteredTrips.filter((item) => `${item.vehicleNo} ${item.tripNo} ${item.biltyNo}`.toLowerCase().includes(podReceivedSearch.toLowerCase()))
+  : filteredTrips;
+
+    const margin =
+      Number(tripForm.bookingFreight || 0) -
+      Number(tripForm.lorryFreight || 0);
+
+    const marginPercent =
+      Number(tripForm.bookingFreight || 0) > 0
+        ? (margin / Number(tripForm.bookingFreight)) * 100
+        : 0;
+
+    return (
+      <>
+        <div className="pageTitle">
+          <h2>
+            {editingTrip ? "Edit LHC / Dispatch" : "LHC / Dispatch"}
+          </h2>
+          <p>Lorry Hire Charges, Advance, Balance & Margin</p>
+        </div>
+
+        <div className="tripHeader">
+          <div>
+            <h3>{editingTrip ? "Edit LHC" : "Create New LHC"}</h3>
+          </div>
+          <div className="tripNumberBox">
+            <strong>LHC No: {tripForm.tripNo || "AUTO GENERATE"}</strong>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="sectionTitle">BILTY & BROKER</div>
+
+          <div className="formGrid">
+            <div className="field">
+              <label>Select Bilty *</label>
+
+              <select
+  value={tripForm.biltyId}
+  onChange={(e) => selectTripBilty(e.target.value)}
+>
+  <option value="">Select Bilty</option>
+ {bilties
+  .filter((item) => {
+    // 🔥 SABHI TRIPS KI SAARI BILTY IDs (selectedBilties se bhi)
+    const allTripBiltyIds = [];
+  
+  trips.forEach(trip => {
+    // Edit mode me current trip ignore karo
+    if (editingTrip && String(trip.id) === String(editingTrip.id)) return;
+    
+    // selectedBilties - DB me text/array dono ho sakta hai
+    let tripSelectedBilties = trip.selectedBilties;
+    
+    // Agar string hai to parse karo
+    if (typeof tripSelectedBilties === 'string') {
+      try {
+        tripSelectedBilties = JSON.parse(tripSelectedBilties);
+      } catch (e) {
+        tripSelectedBilties = [];
+      }
+    }
+    
+    // Agar array hai to saari IDs lo
+    if (Array.isArray(tripSelectedBilties)) {
+      tripSelectedBilties.forEach(bId => {
+        allTripBiltyIds.push(String(bId));
+      });
+    }
+    
+    // biltyId bhi add karo (backup)
+    if (trip.biltyId) {
+      allTripBiltyIds.push(String(trip.biltyId));
+    }
+  });
+      
+    // Current bilty ko hamesha show karo (edit mode me)
+    const isCurrentBilty = String(item.id) === String(tripForm.biltyId);
+    
+    return isCurrentBilty || (
+      !allTripBiltyIds.includes(String(item.id)) && 
+      item.status !== "Delivered"
+    );
+  })
+  .map((item) => (
+    <option key={item.id} value={item.id}>
+      {item.bilty} — {item.consignor} → {item.consignee}
+    </option>
+  ))}
+</select>
+            </div>
+
+            <div className="field">
+              <label>Bilty Number</label>
+
+              <input
+                value={tripForm.biltyNo}
+                readOnly
+              />
+            </div>
+
+            <div className="field">
+              <label>Broker Name</label>
+
+              <input
+                name="brokerName"
+                value={tripForm.brokerName}
+                onChange={updateTrip}
+                placeholder="Broker / Party Name"
+              />
+            </div>
+
+            <div className="field">
+              <label>Trip Date</label>
+
+              <input
+                type="date"
+                name="tripDate"
+                value={tripForm.tripDate}
+                onChange={updateTrip}
+              />
+            </div>
+          </div>
+         {/* 🔥 YAHAN ADD KARO - BILTY & BROKER SECTION KE BAAD */}
+{tripForm.pendingBilties && tripForm.pendingBilties.length > 1 && (
+  <div className="sectionTitle">📦 MULTI BILTY SELECTION</div>
 )}
+
+{tripForm.pendingBilties && tripForm.pendingBilties.length > 1 && (
+  <div className="formGrid">
+    <div className="field full">
+      <label>Select Multiple Biltiy for this Trip</label>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '150px', overflowY: 'auto', border: '1px solid #ddd', padding: '10px', borderRadius: '6px' }}>
+        {tripForm.pendingBilties.map((item) => (
+          <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <input
+              type="checkbox"
+              checked={tripForm.selectedBilties?.includes(item.id)}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setTripForm((prev) => {
+                  const selected = prev.selectedBilties || [];
+                  let newSelected;
+                  if (checked) {
+                    newSelected = [...selected, item.id];
+                  } else {
+                    newSelected = selected.filter(id => id !== item.id);
+                  }
+                  
+                  // 🔥 TOTAL FREIGHT RECALCULATE
+                  const totalFreight = bilties
+                    .filter(b => newSelected.includes(b.id))
+                    .reduce((sum, b) => sum + Number(b.freight || 0), 0);
+                  
+                  return { 
+                    ...prev, 
+                    selectedBilties: newSelected,
+                    bookingFreight: totalFreight  // 🔥 UPDATE TOTAL
+                  };
+                });
+              }}
+            />
+            <span>{item.bilty} - {item.consignor} → {item.consignee} (₹{money(item.freight)})</span>
+          </label>
+        ))}
+      </div>
+      <small style={{ color: '#666' }}>💡 Same vehicle ki multiple bilties select karein</small>
+    </div>
+  </div>
+)}
+
+
+          <div className="sectionTitle">
+            VEHICLE & ROUTE
+          </div>
+
+          <div className="formGrid">
+            <div className="field">
+              <label>Select Vehicle *</label>
+
+              <select
+                value={tripForm.vehicleId}
+                onChange={(e) =>
+                  selectTripVehicle(e.target.value)
+                }
+              >
+                <option value="">
+                  Select Vehicle
+                </option>
+
+                {vehicles
+                  .filter(
+                    (item) =>
+                      item.status === "Active"
+                  )
+                  .map((item) => (
+                    <option
+                      key={item.id}
+                      value={item.id}
+                    >
+                      {item.vehicleNo} —{" "}
+                      {item.vehicleType}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label>Vehicle Number</label>
+
+              <input
+                value={tripForm.vehicleNo}
+                readOnly
+              />
+            </div>
+
+            <div className="field">
+              <label>Vehicle Type</label>
+
+              <input
+                value={tripForm.vehicleType}
+                readOnly
+              />
+            </div>
+
+            <div className="field">
+              <label>Driver Name</label>
+
+              <input
+                value={tripForm.driverName}
+                readOnly
+              />
+            </div>
+
+            <div className="field">
+              <label>Driver Mobile</label>
+
+              <input
+                value={tripForm.driverMobile}
+                readOnly
+              />
+            </div>
+
+            <div className="field">
+              <label>From</label>
+
+              <input
+                name="from"
+                value={tripForm.from}
+                onChange={updateTrip}
+                placeholder="Delhi"
+              />
+            </div>
+
+            <div className="field">
+              <label>To</label>
+
+              <input
+                name="to"
+                value={tripForm.to}
+                onChange={updateTrip}
+                placeholder="Bangalore"
+              />
+            </div>
+
+            <div className="field">
+              <label>Status</label>
+
+              <select
+                name="status"
+                value={tripForm.status}
+                onChange={updateTrip}
+              >
+                <option>DISPATCHED</option>
+                <option>IN TRANSIT</option>
+                <option>RECEIVED</option>
+                <option>DELIVERED</option>
+                <option>CANCELLED</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="sectionTitle">
+            LORRY HIRE & FREIGHT
+          </div>
+
+          <div className="formGrid">
+            <div className="field">
+              <label>
+                Booking Freight
+              </label>
+
+              <input
+                value={`₹ ${money(
+                  tripForm.bookingFreight
+                )}`}
+                readOnly
+              />
+
+              <small>
+                Bilty se automatic aata hai
+              </small>
+            </div>
+
+            <div className="field">
+              <label>
+                Lorry Freight / Hire *
+              </label>
+
+              <input
+                type="number"
+                name="lorryFreight"
+                value={tripForm.lorryFreight}
+                onChange={updateTrip}
+                placeholder="65000"
+              />
+            </div>
+
+            <div className="field">
+              <label>Advance Paid</label>
+
+              <input
+                type="number"
+                name="advance"
+                value={tripForm.advance}
+                onChange={updateTrip}
+                placeholder="20000"
+              />
+            </div>
+
+            <div className="field">
+              <label>Current Lorry Balance</label>
+
+              <input
+                value={`₹ ${money(
+                  tripTotals.lorryFreight -
+                    tripTotals.advance
+                )}`}
+                readOnly
+              />
+            </div>
+          </div>
+
+          <div className="marginBox">
+            <div>
+              <span>BOOKING FREIGHT</span>
+              <strong>
+                ₹{money(tripTotals.bookingFreight)}
+              </strong>
+            </div>
+
+            <div>
+              <span>LORRY FREIGHT</span>
+              <strong>
+                ₹{money(tripTotals.lorryFreight)}
+              </strong>
+            </div>
+
+            <div>
+              <span>ESTIMATED MARGIN</span>
+              <strong>
+                ₹{money(tripTotals.margin)}
+              </strong>
+            </div>
+
+            <div>
+              <span>MARGIN %</span>
+              <strong>
+                {tripTotals.marginPercent.toFixed(2)}%
+              </strong>
+            </div>
+          </div>
+
+          <div className="sectionTitle">
+            RECEIVED / LORRY HIRE BALANCE
+          </div>
+
+          <div className="formGrid">
+            <div className="field">
+              <label>Received Date</label>
+
+              <input
+                type="date"
+                name="receivedDate"
+                value={tripForm.receivedDate}
+                onChange={updateTrip}
+              />
+            </div>
+
+            <div className="field">
+              <label>Lorry Hire Balance</label>
+
+              <input
+                value={`₹ ${money(
+                  tripTotals.balance
+                )}`}
+                readOnly
+              />
+            </div>
+          </div>
+
+          <div className="sectionTitle">
+            DAMAGE / HALTING / OTHER ADJUSTMENTS
+          </div>
+
+          <div className="formGrid">
+            <div className="field">
+              <label>Damage Addition</label>
+
+              <input
+                type="number"
+                name="damageAddition"
+                value={tripForm.damageAddition}
+                onChange={updateTrip}
+                placeholder="0"
+              />
+            </div>
+
+            <div className="field">
+              <label>Damage Deduction</label>
+
+              <input
+                type="number"
+                name="damageDeduction"
+                value={tripForm.damageDeduction}
+                onChange={updateTrip}
+                placeholder="0"
+              />
+            </div>
+
+            <div className="field">
+              <label>Halting Addition</label>
+
+              <input
+                type="number"
+                name="haltingAddition"
+                value={tripForm.haltingAddition}
+                onChange={updateTrip}
+                placeholder="0"
+              />
+            </div>
+
+            <div className="field">
+              <label>Halting Deduction</label>
+
+              <input
+                type="number"
+                name="haltingDeduction"
+                value={tripForm.haltingDeduction}
+                onChange={updateTrip}
+                placeholder="0"
+              />
+            </div>
+
+            <div className="field">
+              <label>Other Addition</label>
+
+              <input
+                type="number"
+                name="otherAddition"
+                value={tripForm.otherAddition}
+                onChange={updateTrip}
+                placeholder="0"
+              />
+            </div>
+
+            <div className="field">
+              <label>Other Deduction</label>
+
+              <input
+                type="number"
+                name="otherDeduction"
+                value={tripForm.otherDeduction}
+                onChange={updateTrip}
+                placeholder="0"
+              />
+            </div>
+          </div>
+
+          <div className="adjustmentSummary">
+            <div>
+              <span>Total Addition</span>
+              <strong>
+                ₹{money(tripTotals.additions)}
+              </strong>
+            </div>
+
+            <div>
+              <span>Total Deduction</span>
+              <strong>
+                ₹{money(tripTotals.deductions)}
+              </strong>
+            </div>
+
+            <div>
+              <span>Final Lorry Hire</span>
+              <strong>
+                ₹{money(
+                  tripTotals.adjustedLorryHire
+                )}
+              </strong>
+            </div>
+
+                      {/* 🔥 BROKER SLIP UPLOAD SECTION */}
+          <div className="sectionTitle">📄 BROKER SLIP UPLOAD</div>
+          <div className="formGrid">
+            <div className="field full">
+              <label>Broker Slip (PDF / Image)</label>
+              <input 
+                type="file" 
+                accept="image/*,.pdf"
+                onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  try {
+                    alert("Uploading slip to R2...");
+                    // Yahan uploadToR2 function call ho raha hai
+                    const url = await uploadToR2(file, "broker-slips", `broker-${tripForm.tripNo}-${Date.now()}`);
+                    setTripForm(prev => ({ ...prev, brokerSlipUrl: url }));
+                    alert("✅ Broker Slip Uploaded Successfully!");
+                  } catch (err) {
+                    alert("❌ Upload failed: " + err.message);
+                  }
+                }}
+                style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '6px', width: '100%' }}
+              />
+              
+              {/* Agar pehle se slip upload hai toh link dikhao */}
+              {tripForm.brokerSlipUrl && (
+                <div style={{ marginTop: '10px' }}>
+                  <a href={tripForm.brokerSlipUrl} target="_blank" rel="noreferrer" className="blueBtn" style={{ textDecoration: 'none', padding: '8px 15px', display: 'inline-block' }}>
+                    📄 View Uploaded Slip
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+
+            <div>
+              <span>Final Balance</span>
+              <strong>
+                ₹{money(
+                  tripTotals.adjustedLorryHire -
+                    tripTotals.advance
+                )}
+              </strong>
+            </div>
+          </div>
+
+          <div className="sectionTitle">
+            CLAIM MANAGEMENT
+          </div>
+
+          <div className="formGrid">
+            <div className="field">
+              <label>Claim Amount</label>
+
+              <input
+                type="number"
+                name="claimAmount"
+                value={tripForm.claimAmount}
+                onChange={updateTrip}
+                placeholder="0"
+              />
+            </div>
+
+            <div className="field full">
+              <label>Claim Reason / Damage Details</label>
+
+              <textarea
+                name="claimReason"
+                value={tripForm.claimReason}
+                onChange={updateTrip}
+                placeholder="Complete damage / material damage / shortage details..."
+              />
+            </div>
+
+            <div className="field full">
+              <label>Trip Remarks</label>
+
+              <textarea
+                name="remarks"
+                value={tripForm.remarks}
+                onChange={updateTrip}
+                placeholder="Any special instruction..."
+              />
+            </div>
+          </div>
+
+          <div className="formButtons">
+            {editingTrip && (
+              <button
+                className="grayBtn"
+                onClick={() => {
+                  setEditingTrip(null);
+                  setTripForm(createEmptyTrip());
+                }}
+              >
+                CANCEL
+              </button>
+            )}
+
+            <button
+              className="greenBtn"
+              onClick={saveTrip}
+            >
+              {editingTrip
+                ? "UPDATE TRIP"
+                : "SAVE TRIP / DISPATCH"}
+            </button>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="listHeader">
+            <div>
+              <h2>LHC / Dispatch List</h2>
+              <p>Total: {trips.length}</p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+  <input
+    className="search"
+    placeholder="🔍 Search Trip / Bilty / Vehicle / Broker..."
+    value={tripSearch}
+    onChange={(e) =>
+      setTripSearch(e.target.value)
+    }
+    style={{ flex: 1, minWidth: '200px' }}
+  />
+  <input
+    className="search"
+    placeholder="🚚 POD Received - Vehicle No. dalo"
+    value={podReceivedSearch}
+    onChange={(e) =>
+      setPodReceivedSearch(e.target.value)
+    }
+    style={{ 
+      flex: 1, 
+      minWidth: '200px',
+      borderColor: '#16855b',
+      borderWidth: '2px'
+    }}
+  />
+</div>
+          </div>
+
+          <div className="tableWrapper">
+            <table>
+             <thead>
+  <tr>
+    <th>LHC No.</th>
+    <th>Bilty</th>
+    <th>Broker</th>
+    <th>Vehicle</th>
+    <th>From</th>
+    <th>To</th>
+    <th>Lorry Freight</th>
+    <th>Advance</th>
+    <th>Balance</th>
+    <th>Margin %</th>
+    <th>Status</th>
+    <th>POD Received</th>
+    <th>Action</th>
+  </tr>
+</thead>
+
+              <tbody>
+                {podFilteredTrips.map((item) => {
+                  const booking = Number(
+                    item.bookingFreight || 0
+                  );
+
+                  const hire = Number(
+                    item.lorryFreight || 0
+                  );
+
+                  const advance = Number(
+                    item.advance || 0
+                  );
+
+                  const margin = booking - hire;
+
+                  const percentage =
+                    booking > 0
+                      ? (margin / booking) * 100
+                      : 0;
+
+                  const finalBalance =
+                    hire +
+                    Number(item.damageAddition || 0) +
+                    Number(item.haltingAddition || 0) +
+                    Number(item.otherAddition || 0) -
+                    Number(item.damageDeduction || 0) -
+                    Number(item.haltingDeduction || 0) -
+                    Number(item.otherDeduction || 0) -
+                    advance;
+
+                  return (
+                    <tr key={item.id}>
+                      <td>
+                        <strong>{item.tripNo}</strong>
+                      </td>
+        <td>
+          {Array.isArray(item.selectedBilties) && item.selectedBilties.length > 1 ? (
+            <div>
+              {item.selectedBilties.map((bId, idx) => {
+                const b = bilties.find(x => String(x.id) === String(bId));
+                return b ? (
+                  <div key={idx} style={{ fontSize: '11px', lineHeight: '1.4' }}>
+                    • {b.bilty}
+                  </div>
+                ) : null;
+              })}
+            </div>
+          ) : (
+            item.biltyNo
+          )}
+        </td>
+
+                      <td>
+                        {item.brokerName || "-"}
+                      </td>
+
+                      <td>{item.vehicleNo}</td>
+
+                      <td>{item.from}</td>
+
+                      <td>{item.to}</td>
+
+                      <td>₹{money(hire)}</td>
+
+{/* 🔥 ADVANCE + UTR */}
+<td style={{ minWidth: '150px' }}>
+  <div style={{ fontWeight: 'bold' }}>₹{money(advance)}</div>
+  {item.advanceUtr ? (
+    <div style={{ fontSize: '10px', color: '#16855b', marginTop: '3px' }}>
+      <div>✅ {item.advanceUtr}</div>
+      <div style={{ color: '#666' }}>📅 {formatDate(item.advanceUtrDate)}</div>
+      <button
+        onClick={() => setUtrModal({
+          type: 'ADVANCE',
+          tripId: item.id,
+          tripNo: item.tripNo,
+          amount: advance,
+          utr: item.advanceUtr || '',
+          date: item.advanceUtrDate || new Date().toISOString().slice(0, 10),
+        })}
+        style={{
+          marginTop: '3px',
+          padding: '2px 6px',
+          background: '#1769aa',
+          color: 'white',
+          border: 'none',
+          borderRadius: '3px',
+          fontSize: '9px',
+          cursor: 'pointer'
+        }}
+      >
+        ✏️ EDIT
+      </button>
+    </div>
+  ) : (
+    <button
+      onClick={() => setUtrModal({
+        type: 'ADVANCE',
+        tripId: item.id,
+        tripNo: item.tripNo,
+        amount: advance,
+        utr: '',
+        date: new Date().toISOString().slice(0, 10),
+      })}
+      style={{
+        marginTop: '3px',
+        padding: '3px 8px',
+        background: '#c62828',
+        color: 'white',
+        border: 'none',
+        borderRadius: '4px',
+        fontSize: '10px',
+        cursor: 'pointer',
+        fontWeight: 'bold'
+      }}
+    >
+      + UTR
+    </button>
+  )}
+</td>
+                     {/* 🔥 BALANCE + UTR */}
+<td style={{ minWidth: '150px' }}>
+  <div style={{ fontWeight: 'bold', color: finalBalance < 0 ? '#c62828' : '#16855b' }}>
+    ₹{money(finalBalance)}
+  </div>
+  {item.balanceUtr ? (
+    <div style={{ fontSize: '10px', color: '#16855b', marginTop: '3px' }}>
+      <div>✅ {item.balanceUtr}</div>
+      <div style={{ color: '#666' }}>📅 {formatDate(item.balanceUtrDate)}</div>
+      <button
+        onClick={() => setUtrModal({
+          type: 'BALANCE',
+          tripId: item.id,
+          tripNo: item.tripNo,
+          amount: finalBalance,
+          utr: item.balanceUtr || '',
+          date: item.balanceUtrDate || new Date().toISOString().slice(0, 10),
+        })}
+        style={{
+          marginTop: '3px',
+          padding: '2px 6px',
+          background: '#1769aa',
+          color: 'white',
+          border: 'none',
+          borderRadius: '3px',
+          fontSize: '9px',
+          cursor: 'pointer'
+        }}
+      >
+        ✏️ EDIT
+      </button>
+    </div>
+  ) : (
+    <button
+      onClick={() => setUtrModal({
+        type: 'BALANCE',
+        tripId: item.id,
+        tripNo: item.tripNo,
+        amount: finalBalance,
+        utr: '',
+        date: new Date().toISOString().slice(0, 10),
+      })}
+      style={{
+        marginTop: '3px',
+        padding: '3px 8px',
+        background: '#c62828',
+        color: 'white',
+        border: 'none',
+        borderRadius: '4px',
+        fontSize: '10px',
+        cursor: 'pointer',
+        fontWeight: 'bold'
+      }}
+    >
+      + UTR
+    </button>
+  )}
+</td>
+                      <td>
+                        <strong>
+                          {percentage.toFixed(2)}%
+                        </strong>
+                      </td>
+
+                      <td>
+  <span className="statusActive">
+    {item.status}
+  </span>
+</td>
+
+{/* 🔥 POD RECEIVED COLUMN — WITH EDIT & DELETE */}
+<td style={{ textAlign: 'center' }}>
+  {item.podReceived ? (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+      <span style={{ 
+        background: '#e8f5e9', 
+        color: '#16855b', 
+        padding: '3px 10px', 
+        borderRadius: '12px',
+        fontSize: '11px',
+        fontWeight: 'bold',
+        whiteSpace: 'nowrap'
+      }}>
+        ✅ {formatDate(item.podReceivedDate)}
+      </span>
+      <div style={{ display: 'flex', gap: '4px' }}>
+        <button
+          onClick={() => {
+            const date = prompt(
+              `✏️ EDIT POD Received Date\n\nTrip: ${item.tripNo}\nVehicle: ${item.vehicleNo}\nCurrent: ${formatDate(item.podReceivedDate)}\n\nNew date (YYYY-MM-DD):`,
+              item.podReceivedDate || new Date().toISOString().slice(0, 10)
+            );
+            if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+              updatePodReceived(item, date);
+            } else if (date) {
+              alert("❌ Sahi date format daalein: YYYY-MM-DD");
+            }
+          }}
+          style={{
+            padding: '3px 8px',
+            background: '#1769aa',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            fontSize: '10px',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          ✏️ EDIT
+        </button>
+        <button
+          onClick={() => deletePodReceived(item)}
+          style={{
+            padding: '3px 8px',
+            background: '#c62828',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            fontSize: '10px',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          🗑️
+        </button>
+      </div>
+    </div>
+  ) : (
+    <button
+      onClick={() => {
+        const date = prompt(
+          `📅 POD Received Date for Trip ${item.tripNo} (Vehicle: ${item.vehicleNo})\n\nFormat: YYYY-MM-DD (e.g., 2026-09-24)`,
+          new Date().toISOString().slice(0, 10)
+        );
+        if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          updatePodReceived(item, date);
+        } else if (date) {
+          alert("❌ Sahi date format daalein: YYYY-MM-DD");
+        }
+      }}
+      style={{
+        padding: '4px 12px',
+        background: '#c62828',
+        color: 'white',
+        border: 'none',
+        borderRadius: '6px',
+        fontSize: '11px',
+        cursor: 'pointer',
+        fontWeight: 'bold'
+      }}
+    >
+      ⏳ POD Pending
+    </button>
+  )}
+</td>
+
+<td>
+  <button
+    className="editBtn"
+    onClick={() =>
+      editTrip(item)
+    }
+  >
+    EDIT
+  </button>
+
+                        <button
+                          className="printBtn"
+                          onClick={() =>
+                            setPrintTrip(item)
+                          }
+                        >
+                          PRINT
+                        </button>
+
+                        // Ab aisa karo:
+{userRole === "ADMIN" && (
+  <button className="deleteBtn" onClick={() => deleteTrip(item.id)}>DELETE</button>
+)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {filteredTrips.length === 0 && (
+              <div className="empty">
+                No Trip found.
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  // =========================================================
+// 🔥 SEND LHB PAYMENT DETAILS VIA WHATSAPP
+// =========================================================
+const sendLHBWhatsApp = (trip, phone) => {
+  // Bilty numbers nikalo
+  let biltyNumbers = "";
+  if (Array.isArray(trip._allBiltyNos) && trip._allBiltyNos.length > 0) {
+    biltyNumbers = trip._allBiltyNos.join(", ");
+  } else if (Array.isArray(trip.selectedBilties) && trip.selectedBilties.length > 0) {
+    biltyNumbers = trip.selectedBilties
+      .map(bId => {
+        const b = bilties.find(x => String(x.id) === String(bId));
+        return b ? b.bilty : null;
+      })
+      .filter(Boolean)
+      .join(", ");
+  } else {
+    biltyNumbers = trip.biltyNo || "-";
+  }
+
+  // 🔥 CALCULATIONS
+  const hire = trip._totalLorryFreight !== undefined 
+    ? Number(trip._totalLorryFreight) 
+    : Number(trip.lorryFreight || 0);
+  
+  const advance = trip._totalAdvance !== undefined 
+    ? Number(trip._totalAdvance) 
+    : Number(trip.advance || 0);
+
+  const halting = Number(lhbHalting || 0);
+  const damage = Number(lhbDamage || 0);
+  
+  const cashPaid = Number(lhbCash || 0);
+  const bankPaid = Number(lhbBank || 0);
+  const challanDeduction = Number(lhbOther || 0);
+  
+  // 🔥 TOTAL PAID = Cash + NEFT + Challan
+  const totalPaid = cashPaid + bankPaid + challanDeduction;
+  
+  // 🔥 BALANCE = Hire - Advance (payment se pehle)
+  const currentBalance = (hire + halting - damage) - advance;
+  
+  // 🔥 PENDING = Balance - Total Paid (payment ke baad)
+  const pendingBalance = currentBalance - totalPaid;
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  // 🔥 MESSAGE
+  const message = 
+`${COMPANY.name}
+
+PAYMENT RECEIPT
+
+Trip No - ${trip.tripNo || "-"}
+Date - ${formatDate(today)}
+Bilty No - ${biltyNumbers}
+Vehicle No - ${trip.vehicleNo || "-"}
+Lorry Hire - ${money(hire)}
+Advance - ${money(advance)}
+Balance - ${money(currentBalance)}
+
+
+Cash - Rs.${money(cashPaid)}
+NEFT/Bank - Rs.${money(bankPaid)}
+Challan Deduction - Rs.${money(challanDeduction)}
+
+Final Paid - ${money(totalPaid)} /-
+
+Pending Balance - Rs.${money(pendingBalance)}
+
+Broker - ${trip.brokerName || trip.ownerName || "-"}
+
+Thank You`;
+
+  const cleanPhone = phone.replace(/[^0-9]/g, "");
+  const whatsappUrl = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(message)}`;
+  
+  window.location.href = whatsappUrl;
+};
         // =========================================================
   // LORRY HIRE BALANCE PAGE — FULL FIXED VERSION
   // =========================================================
