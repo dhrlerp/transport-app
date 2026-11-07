@@ -26,6 +26,10 @@ const EXPENSE_TYPES = [
   { value: "OTHER", label: "Other Expense", partyLabel: "Name / Description" },
 ];
 
+// 🔥🔥🔥 PARTY COMMISSION HELPERS 🔥🔥🔥
+const PARTY_COMMISSION_TYPE = "PARTY_COMMISSION";
+const isPartyCommission = (type) => type === PARTY_COMMISSION_TYPE;
+
 // 🔥 R2 UPLOAD FUNCTION (Direct Browser to R2)
 async function uploadToR2(file, folder, fileName) {
   // 1. Vercel API se temporary upload URL lo
@@ -270,15 +274,24 @@ function App() {
   const [editingExpense, setEditingExpense] = useState(null);
 
   const createEmptyExpense = () => ({
-    id: null,
-    expenseDate: new Date().toISOString().slice(0, 10),
-    expenseType: "",
-    partyName: "",
-    amount: "",
-    paymentMode: "CASH",
-    remarks: "",
-    billUrl: "",
-  });
+  id: null,
+  expenseDate: new Date().toISOString().slice(0, 10),
+  expenseType: "",
+  partyName: "",
+  amount: "",
+  paymentMode: "CASH",
+  remarks: "",
+  billUrl: "",
+  // 🔥 PARTY COMMISSION KE LIYE
+  biltyId: "",
+  biltyNo: "",
+  vehicleNo: "",
+  loadingDate: "",
+  tripId: "",
+  tripNo: "",
+  bookingFreight: 0,
+  lorryHire: 0,
+});
 
   const [expenseForm, setExpenseForm] = useState(createEmptyExpense());
 // =========================================================
@@ -351,6 +364,9 @@ const [reportPeriod, setReportPeriod] = useState("DAY");
     items: []
   });
 
+
+
+  
 // =========================================================
   // DAILY TRACKING STATE
   // =========================================================
@@ -2072,36 +2088,215 @@ const selectTripBilty = (id) => {
     } catch (e) { alert("❌ Error: " + e.message); }
   };
 
-  // 🔥🔥🔥 YAHAN PASTE KARO — EXPENSE FUNCTIONS 🔥🔥🔥
+  // 🔥🔥🔥 EXPENSE FUNCTIONS — PARTY COMMISSION AUTO UPDATE 🔥🔥🔥
 const updateExpense = (e) => {
   const { name, value } = e.target;
   setExpenseForm((prev) => ({ ...prev, [name]: value }));
+};
+
+const selectExpenseBilty = (biltyId) => {
+  if (!biltyId) {
+    setExpenseForm((prev) => ({
+      ...prev,
+      biltyId: "",
+      biltyNo: "",
+      vehicleNo: "",
+      loadingDate: "",
+      tripId: "",
+      tripNo: "",
+      bookingFreight: 0,
+      lorryHire: 0,
+    }));
+    return;
+  }
+
+  const bilty = bilties.find((b) => String(b.id) === String(biltyId));
+  if (!bilty) return;
+
+  const linkedTrip = trips.find(
+    (t) =>
+      String(t.biltyId) === String(biltyId) ||
+      (Array.isArray(t.selectedBilties) &&
+        t.selectedBilties.some((id) => String(id) === String(biltyId)))
+  );
+
+  setExpenseForm((prev) => ({
+    ...prev,
+    biltyId: bilty.id,
+    biltyNo: bilty.bilty || "",
+    vehicleNo: linkedTrip?.vehicleNo || bilty.vehicle || "",
+    loadingDate:
+      linkedTrip?.tripDate || bilty.loadingDate || bilty.date || "",
+    tripId: linkedTrip?.id || "",
+    tripNo: linkedTrip?.tripNo || "",
+    bookingFreight: Number(bilty.freight || 0),
+    lorryHire: linkedTrip ? Number(linkedTrip.lorryFreight || 0) : 0,
+    partyName: prev.partyName || bilty.consignor || "",
+  }));
+};
+
+// HELPER: Commission ADD karo Bilty + Trip me
+const applyCommissionToBiltyAndTrip = async (biltyId, commissionAmount) => {
+  if (!biltyId || commissionAmount <= 0) return;
+
+  const bilty = bilties.find((b) => String(b.id) === String(biltyId));
+  if (bilty) {
+    const newFreight = Number(bilty.freight || 0) + commissionAmount;
+    const { error: biltyError } = await supabase
+      .from("bilties")
+      .update({ freight: String(newFreight) })
+      .eq("id", biltyId);
+    if (biltyError) throw biltyError;
+  }
+
+  const linkedTrips = trips.filter(
+    (t) =>
+      String(t.biltyId) === String(biltyId) ||
+      (Array.isArray(t.selectedBilties) &&
+        t.selectedBilties.some((id) => String(id) === String(biltyId)))
+  );
+
+  for (const trip of linkedTrips) {
+    const totalBilties = Array.isArray(trip.selectedBilties)
+      ? trip.selectedBilties.length
+      : 1;
+    const perTripCommission = commissionAmount / totalBilties;
+
+    const newBookingFreight =
+      Number(trip.bookingFreight || 0) + perTripCommission;
+    const newLorryFreight =
+      Number(trip.lorryFreight || 0) + perTripCommission;
+
+    const { error: tripError } = await supabase
+      .from("trips")
+      .update({
+        bookingFreight: String(newBookingFreight),
+        lorryFreight: String(newLorryFreight),
+      })
+      .eq("id", trip.id);
+    if (tripError) throw tripError;
+  }
+};
+
+// HELPER: Commission REVERSE karo
+const reverseCommissionFromBiltyAndTrip = async (biltyId, commissionAmount) => {
+  if (!biltyId || commissionAmount <= 0) return;
+
+  const bilty = bilties.find((b) => String(b.id) === String(biltyId));
+  if (bilty) {
+    const newFreight = Math.max(0, Number(bilty.freight || 0) - commissionAmount);
+    const { error: biltyError } = await supabase
+      .from("bilties")
+      .update({ freight: String(newFreight) })
+      .eq("id", biltyId);
+    if (biltyError) throw biltyError;
+  }
+
+  const linkedTrips = trips.filter(
+    (t) =>
+      String(t.biltyId) === String(biltyId) ||
+      (Array.isArray(t.selectedBilties) &&
+        t.selectedBilties.some((id) => String(id) === String(biltyId)))
+  );
+
+  for (const trip of linkedTrips) {
+    const totalBilties = Array.isArray(trip.selectedBilties)
+      ? trip.selectedBilties.length
+      : 1;
+    const perTripCommission = commissionAmount / totalBilties;
+
+    const newBookingFreight = Math.max(
+      0,
+      Number(trip.bookingFreight || 0) - perTripCommission
+    );
+    const newLorryFreight = Math.max(
+      0,
+      Number(trip.lorryFreight || 0) - perTripCommission
+    );
+
+    const { error: tripError } = await supabase
+      .from("trips")
+      .update({
+        bookingFreight: String(newBookingFreight),
+        lorryFreight: String(newLorryFreight),
+      })
+      .eq("id", trip.id);
+    if (tripError) throw tripError;
+  }
 };
 
 const saveExpense = async () => {
   if (!expenseForm.expenseType) { alert("❌ Expense Type select karein"); return; }
   if (!expenseForm.amount || Number(expenseForm.amount) <= 0) { alert("❌ Valid amount daalein"); return; }
 
+  // Party Commission ke liye bilty compulsory
+  if (isPartyCommission(expenseForm.expenseType) && !expenseForm.biltyId) {
+    alert("❌ Party Commission ke liye Bilty select karna zaroori hai");
+    return;
+  }
+
+  const commissionAmount = Number(expenseForm.amount);
+  const isPC = isPartyCommission(expenseForm.expenseType);
+
   try {
     const payload = {
       expense_date: expenseForm.expenseDate,
       expense_type: expenseForm.expenseType,
       party_name: expenseForm.partyName || null,
-      amount: Number(expenseForm.amount),
+      amount: commissionAmount,
       payment_mode: expenseForm.paymentMode,
       remarks: expenseForm.remarks || null,
       bill_url: expenseForm.billUrl || null,
       created_by: userRole || "ADMIN",
+      bilty_id: expenseForm.biltyId || null,
+      bilty_no: expenseForm.biltyNo || null,
+      vehicle_no: expenseForm.vehicleNo || null,
+      loading_date: expenseForm.loadingDate || null,
+      trip_id: expenseForm.tripId || null,
+      trip_no: expenseForm.tripNo || null,
+      booking_freight: Number(expenseForm.bookingFreight || 0),
+      lorry_hire: Number(expenseForm.lorryHire || 0),
     };
 
     if (editingExpense) {
-      const { error } = await supabase.from("expenses").update(payload).eq("id", editingExpense.id);
+      // Purana reverse karo
+      if (isPartyCommission(editingExpense.expense_type)) {
+        await reverseCommissionFromBiltyAndTrip(
+          editingExpense.bilty_id,
+          Number(editingExpense.amount || 0)
+        );
+      }
+
+      const { error } = await supabase
+        .from("expenses")
+        .update(payload)
+        .eq("id", editingExpense.id);
       if (error) throw error;
-      alert("✅ Expense Updated Successfully");
+
+      if (isPC) {
+        await applyCommissionToBiltyAndTrip(
+          expenseForm.biltyId,
+          commissionAmount
+        );
+      }
+
+      alert("✅ Expense Updated + Bilty/Trip Adjust ho gaya!");
     } else {
       const { error } = await supabase.from("expenses").insert([payload]);
       if (error) throw error;
-      alert("✅ Expense Added Successfully");
+
+      if (isPC) {
+        await applyCommissionToBiltyAndTrip(
+          expenseForm.biltyId,
+          commissionAmount
+        );
+      }
+
+      alert(
+        isPC
+          ? `✅ Party Commission ₹${money(commissionAmount)} saved!\n\n📦 Bilty ka Booking badh gaya\n🚛 Trip ka Lorry Hire badh gaya\n📊 Margin same rahega`
+          : "✅ Expense Added Successfully"
+      );
     }
 
     await loadAllData();
@@ -2123,16 +2318,36 @@ const editExpense = (item) => {
     paymentMode: item.payment_mode || "CASH",
     remarks: item.remarks || "",
     billUrl: item.bill_url || "",
+    biltyId: item.bilty_id || "",
+    biltyNo: item.bilty_no || "",
+    vehicleNo: item.vehicle_no || "",
+    loadingDate: item.loading_date || "",
+    tripId: item.trip_id || "",
+    tripNo: item.trip_no || "",
+    bookingFreight: item.booking_freight || 0,
+    lorryHire: item.lorry_hire || 0,
   });
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
 const deleteExpense = async (id) => {
-  if (!window.confirm("🗑️ Pakka delete karna hai?")) return;
+  if (!window.confirm("🗑️ Pakka delete karna hai?\n\nAgar Party Commission hai to Bilty/Trip ka booking aur lorry hire bhi reverse ho jayega.")) return;
+
   try {
+    const expenseToDelete = expenses.find((e) => String(e.id) === String(id));
+    if (!expenseToDelete) return;
+
+    if (isPartyCommission(expenseToDelete.expense_type)) {
+      await reverseCommissionFromBiltyAndTrip(
+        expenseToDelete.bilty_id,
+        Number(expenseToDelete.amount || 0)
+      );
+    }
+
     const { error } = await supabase.from("expenses").delete().eq("id", id);
     if (error) throw error;
-    alert("✅ Deleted");
+
+    alert("✅ Expense Deleted + Bilty/Trip reverse ho gaya!");
     await loadAllData();
   } catch (err) {
     alert("❌ Error: " + err.message);
@@ -5017,6 +5232,111 @@ const renderBiltyPage = () => {
               <label>{partyLabel}</label>
               <input name="partyName" value={expenseForm.partyName} onChange={updateExpense} placeholder={partyLabel} />
             </div>
+            {/* 🔥 PARTY COMMISSION SPECIAL FIELDS */}
+{isPartyCommission(expenseForm.expenseType) && (
+  <>
+    <div className="field">
+      <label>Select Bilty *</label>
+      <select
+        value={expenseForm.biltyId}
+        onChange={(e) => selectExpenseBilty(e.target.value)}
+      >
+        <option value="">-- Select Bilty --</option>
+        {bilties.map((b) => (
+          <option key={b.id} value={b.id}>
+            {b.bilty} — {b.consignor} → {b.consignee}
+          </option>
+        ))}
+      </select>
+      <small style={{ color: "#666" }}>
+        💡 Bilty select karte hi Vehicle, Loading Date, Trip No, Booking Freight, Lorry Hire auto-fill hoga
+      </small>
+    </div>
+
+    <div className="field">
+      <label>Bilty Number</label>
+      <input value={expenseForm.biltyNo} readOnly style={{ background: "#f0f0f0" }} />
+    </div>
+
+    <div className="field">
+      <label>Vehicle No.</label>
+      <input value={expenseForm.vehicleNo} readOnly style={{ background: "#f0f0f0" }} />
+    </div>
+
+    <div className="field">
+      <label>Loading Date</label>
+      <input type="date" value={expenseForm.loadingDate} readOnly style={{ background: "#f0f0f0" }} />
+    </div>
+
+    <div className="field">
+      <label>Trip No.</label>
+      <input value={expenseForm.tripNo || "-"} readOnly style={{ background: "#f0f0f0" }} />
+    </div>
+
+    <div className="field">
+      <label>Current Booking Freight (₹)</label>
+      <input type="number" value={expenseForm.bookingFreight} readOnly style={{ background: "#f0f0f0" }} />
+    </div>
+
+    <div className="field">
+      <label>Current Lorry Hire (₹)</label>
+      <input type="number" value={expenseForm.lorryHire} readOnly style={{ background: "#f0f0f0" }} />
+    </div>
+
+    {/* 🔥 MARGIN PREVIEW */}
+    <div className="field full">
+      <div
+        style={{
+          padding: "15px",
+          background: "#fff8e1",
+          border: "2px solid #ed6c02",
+          borderRadius: "8px",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr 1fr",
+          gap: "10px",
+          textAlign: "center",
+        }}
+      >
+        <div>
+          <div style={{ fontSize: "11px", color: "#666" }}>NEW BOOKING FREIGHT</div>
+          <div style={{ fontSize: "16px", fontWeight: "bold", color: "#1769aa" }}>
+            ₹{money(Number(expenseForm.bookingFreight || 0) + Number(expenseForm.amount || 0))}
+          </div>
+          <div style={{ fontSize: "10px", color: "#999" }}>
+            (₹{money(expenseForm.bookingFreight)} + ₹{money(expenseForm.amount)})
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: "11px", color: "#666" }}>NEW LORRY HIRE</div>
+          <div style={{ fontSize: "16px", fontWeight: "bold", color: "#c62828" }}>
+            ₹{money(Number(expenseForm.lorryHire || 0) + Number(expenseForm.amount || 0))}
+          </div>
+          <div style={{ fontSize: "10px", color: "#999" }}>
+            (₹{money(expenseForm.lorryHire)} + ₹{money(expenseForm.amount)})
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: "11px", color: "#666" }}>EXACT MARGIN (SAME)</div>
+          <div
+            style={{
+              fontSize: "18px",
+              fontWeight: "bold",
+              color: "#16855b",
+            }}
+          >
+            ₹{money(
+              Number(expenseForm.bookingFreight || 0) -
+                Number(expenseForm.lorryHire || 0)
+            )}
+          </div>
+          <div style={{ fontSize: "10px", color: "#999" }}>
+            (Booking - Lorry Hire = Same rehta hai)
+          </div>
+        </div>
+      </div>
+    </div>
+  </>
+)}
             <div className="field">
               <label>Amount (₹) *</label>
               <input type="number" name="amount" value={expenseForm.amount} onChange={updateExpense} placeholder="1000" />
@@ -5098,22 +5418,27 @@ const renderBiltyPage = () => {
 
           <div className="tableWrapper">
             <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Type</th>
-                  <th>Party / Name</th>
-                  <th>Amount</th>
-                  <th>Mode</th>
-                  <th>Remarks</th>
-                  <th>Bill</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
+             <thead>
+  <tr>
+    <th>Date</th>
+    <th>Type</th>
+    <th>Party / Name</th>
+    <th>Bilty No.</th>
+    <th>Vehicle No.</th>
+    <th>Loading Date</th>
+    <th>Booking Freight</th>
+    <th>Lorry Hire</th>
+    <th>Commission</th>
+    <th>Exact Margin</th>
+    <th>Mode</th>
+    <th>Bill</th>
+    <th>Action</th>
+  </tr>
+</thead>
               <tbody>
                 {filteredExpenses.length === 0 ? (
                   <tr>
-                    <td colSpan="8" style={{ textAlign: "center", padding: "40px", color: "#999" }}>
+                    <td colSpan="13" style={{ textAlign: "center", padding: "40px", color: "#999" }}>
                       No expenses found. Add your first expense above ☝️
                     </td>
                   </tr>
@@ -5121,29 +5446,39 @@ const renderBiltyPage = () => {
                   filteredExpenses.map((item) => {
                     const typeLabel = EXPENSE_TYPES.find((t) => t.value === item.expense_type)?.label || item.expense_type;
                     return (
-                      <tr key={item.id}>
-                        <td>{formatDate(item.expense_date)}</td>
-                        <td>
-                          <span style={{ background: "#e3f2fd", color: "#1769aa", padding: "3px 10px", borderRadius: "10px", fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap" }}>
-                            {typeLabel}
-                          </span>
-                        </td>
-                        <td>{item.party_name || "-"}</td>
-                        <td style={{ fontWeight: "bold", color: "#c62828" }}>₹{money(item.amount)}</td>
-                        <td style={{ fontSize: "11px" }}>{item.payment_mode || "CASH"}</td>
-                        <td style={{ fontSize: "12px", maxWidth: "200px" }}>{item.remarks || "-"}</td>
-                        <td style={{ textAlign: "center" }}>
-                          {item.bill_url ? (
-                            <a href={item.bill_url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", fontSize: "16px" }} title="View Bill">📄</a>
-                          ) : (
-                            <span style={{ color: "#ccc" }}>—</span>
-                          )}
-                        </td>
-                        <td>
-                          <button className="editBtn" onClick={() => editExpense(item)}>EDIT</button>
-                          <button className="deleteBtn" onClick={() => deleteExpense(item.id)}>DELETE</button>
-                        </td>
-                      </tr>
+    <tr key={item.id}>
+  <td>{formatDate(item.expense_date)}</td>
+  <td>
+    <span style={{ background: "#e3f2fd", color: "#1769aa", padding: "3px 10px", borderRadius: "10px", fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap" }}>
+      {typeLabel}
+    </span>
+  </td>
+  <td>{item.party_name || "-"}</td>
+  <td>{item.bilty_no || "-"}</td>
+  <td>{item.vehicle_no || "-"}</td>
+  <td>{item.loading_date ? formatDate(item.loading_date) : "-"}</td>
+  <td>₹{money(item.booking_freight)}</td>
+  <td>₹{money(item.lorry_hire)}</td>
+  <td style={{ fontWeight: "bold", color: "#c62828" }}>₹{money(item.amount)}</td>
+  <td style={{ fontWeight: "bold", color: (() => {
+    const m = Number(item.booking_freight || 0) - Number(item.lorry_hire || 0);
+    return m < 0 ? "#c62828" : "#16855b";
+  })() }}>
+    ₹{money(Number(item.booking_freight || 0) - Number(item.lorry_hire || 0))}
+  </td>
+  <td style={{ fontSize: "11px" }}>{item.payment_mode || "CASH"}</td>
+  <td style={{ textAlign: "center" }}>
+    {item.bill_url ? (
+      <a href={item.bill_url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", fontSize: "16px" }} title="View Bill">📄</a>
+    ) : (
+      <span style={{ color: "#ccc" }}>—</span>
+    )}
+  </td>
+  <td>
+    <button className="editBtn" onClick={() => editExpense(item)}>EDIT</button>
+    <button className="deleteBtn" onClick={() => deleteExpense(item.id)}>DELETE</button>
+  </td>
+</tr>
                     );
                   })
                 )}
