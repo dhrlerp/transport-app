@@ -10,6 +10,22 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 import * as XLSX from "xlsx";
 import "./App.css";
 
+const EXPENSE_TYPES = [
+  { value: "PARTY_COMMISSION", label: "Party Commission", partyLabel: "Party Name" },
+  { value: "COURIER", label: "Courier", partyLabel: "Courier Company Name" },
+  { value: "PETROL", label: "Petrol / Diesel", partyLabel: "Vehicle / Pump Name" },
+  { value: "STAFF_ADVANCE", label: "Staff Advance", partyLabel: "Staff Name" },
+  { value: "STAFF_SALARY", label: "Staff Salary", partyLabel: "Staff Name" },
+  { value: "OFFICE_RENT", label: "Office Rent", partyLabel: "Landlord Name" },
+  { value: "ROOM_RENT", label: "Room Rent", partyLabel: "Room / Owner Name" },
+  { value: "ELECTRICITY", label: "Electricity Bill", partyLabel: "Meter Name" },
+  { value: "INTERNET", label: "Internet / Phone", partyLabel: "Provider Name" },
+  { value: "TEA_FOOD", label: "Tea / Food", partyLabel: "Shop Name" },
+  { value: "REPAIR", label: "Repair / Maintenance", partyLabel: "Vendor Name" },
+  { value: "TRANSPORT", label: "Local Transport", partyLabel: "Driver Name" },
+  { value: "OTHER", label: "Other Expense", partyLabel: "Name / Description" },
+];
+
 // 🔥 R2 UPLOAD FUNCTION (Direct Browser to R2)
 async function uploadToR2(file, folder, fileName) {
   // 1. Vercel API se temporary upload URL lo
@@ -244,6 +260,27 @@ function getNextNumber(items, field, prefix) {
 
 function App() {
   const [page, setPage] = useState("dashboard");
+
+    // 🔥🔥🔥 YAHAN PASTE KARO — EXPENSE STATES 🔥🔥🔥
+  const [expenses, setExpenses] = useState([]);
+  const [expenseSearch, setExpenseSearch] = useState("");
+  const [expenseTypeFilter, setExpenseTypeFilter] = useState("");
+  const [expenseDateFrom, setExpenseDateFrom] = useState("");
+  const [expenseDateTo, setExpenseDateTo] = useState("");
+  const [editingExpense, setEditingExpense] = useState(null);
+
+  const createEmptyExpense = () => ({
+    id: null,
+    expenseDate: new Date().toISOString().slice(0, 10),
+    expenseType: "",
+    partyName: "",
+    amount: "",
+    paymentMode: "CASH",
+    remarks: "",
+    billUrl: "",
+  });
+
+  const [expenseForm, setExpenseForm] = useState(createEmptyExpense());
 // =========================================================
 // BILL SUBMISSION STATE
 // =========================================================
@@ -624,6 +661,10 @@ if (tripsData) {
       // 🔥 TRACKING VEHICLES LOAD
 let { data: trackingData } = await supabase.from('tracking').select('*');
 if (trackingData) setTrackingVehicles(trackingData);
+
+// 🔥🔥🔥 YAHAN ADD KARO 🔥🔥🔥
+let { data: expensesData } = await supabase.from('expenses').select('*').order('expense_date', { ascending: false });
+if (expensesData) setExpenses(expensesData);
 
     } catch (e) {
       console.log("Error loading data:", e);
@@ -2030,6 +2071,74 @@ const selectTripBilty = (id) => {
       if (!error) { loadAllData(); }
     } catch (e) { alert("❌ Error: " + e.message); }
   };
+
+  // 🔥🔥🔥 YAHAN PASTE KARO — EXPENSE FUNCTIONS 🔥🔥🔥
+const updateExpense = (e) => {
+  const { name, value } = e.target;
+  setExpenseForm((prev) => ({ ...prev, [name]: value }));
+};
+
+const saveExpense = async () => {
+  if (!expenseForm.expenseType) { alert("❌ Expense Type select karein"); return; }
+  if (!expenseForm.amount || Number(expenseForm.amount) <= 0) { alert("❌ Valid amount daalein"); return; }
+
+  try {
+    const payload = {
+      expense_date: expenseForm.expenseDate,
+      expense_type: expenseForm.expenseType,
+      party_name: expenseForm.partyName || null,
+      amount: Number(expenseForm.amount),
+      payment_mode: expenseForm.paymentMode,
+      remarks: expenseForm.remarks || null,
+      bill_url: expenseForm.billUrl || null,
+      created_by: userRole || "ADMIN",
+    };
+
+    if (editingExpense) {
+      const { error } = await supabase.from("expenses").update(payload).eq("id", editingExpense.id);
+      if (error) throw error;
+      alert("✅ Expense Updated Successfully");
+    } else {
+      const { error } = await supabase.from("expenses").insert([payload]);
+      if (error) throw error;
+      alert("✅ Expense Added Successfully");
+    }
+
+    await loadAllData();
+    setExpenseForm(createEmptyExpense());
+    setEditingExpense(null);
+  } catch (err) {
+    alert("❌ Error: " + err.message);
+  }
+};
+
+const editExpense = (item) => {
+  setEditingExpense(item);
+  setExpenseForm({
+    id: item.id,
+    expenseDate: item.expense_date,
+    expenseType: item.expense_type,
+    partyName: item.party_name || "",
+    amount: item.amount,
+    paymentMode: item.payment_mode || "CASH",
+    remarks: item.remarks || "",
+    billUrl: item.bill_url || "",
+  });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+const deleteExpense = async (id) => {
+  if (!window.confirm("🗑️ Pakka delete karna hai?")) return;
+  try {
+    const { error } = await supabase.from("expenses").delete().eq("id", id);
+    if (error) throw error;
+    alert("✅ Deleted");
+    await loadAllData();
+  } catch (err) {
+    alert("❌ Error: " + err.message);
+  }
+};
+
 // =========================================================
 // 🔥 UPDATE POD RECEIVED DATE
 // =========================================================
@@ -4816,6 +4925,254 @@ const renderBiltyPage = () => {
     );
   };
 
+// 🔥🔥🔥 YAHAN PASTE KARO — RENDER EXPENSES PAGE 🔥🔥🔥
+  const renderExpensesPage = () => {
+    if (typeof userRole !== "undefined" && userRole !== "ADMIN") {
+      return (
+        <div className="card" style={{ padding: "40px", textAlign: "center" }}>
+          <div style={{ fontSize: "50px", marginBottom: "15px" }}>🔒</div>
+          <h2>Access Denied</h2>
+          <p style={{ color: "#666" }}>Ye page sirf Admin ke liye hai.</p>
+        </div>
+      );
+    }
+
+    const filteredExpenses = expenses.filter((item) => {
+      const searchMatch = `${item.expense_type} ${item.party_name || ""} ${item.remarks || ""}`
+        .toLowerCase()
+        .includes(expenseSearch.toLowerCase());
+      const typeMatch = !expenseTypeFilter || item.expense_type === expenseTypeFilter;
+      const dateMatch =
+        (!expenseDateFrom || item.expense_date >= expenseDateFrom) &&
+        (!expenseDateTo || item.expense_date <= expenseDateTo);
+      return searchMatch && typeMatch && dateMatch;
+    });
+
+    const totalAmount = filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    const today = new Date().toISOString().slice(0, 10);
+    const todayTotal = expenses
+      .filter((e) => e.expense_date === today)
+      .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    const thisMonth = today.slice(0, 7);
+    const monthTotal = expenses
+      .filter((e) => (e.expense_date || "").startsWith(thisMonth))
+      .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+    const byCategory = {};
+    filteredExpenses.forEach((e) => {
+      const key = e.expense_type || "OTHER";
+      byCategory[key] = (byCategory[key] || 0) + Number(e.amount || 0);
+    });
+
+    const selectedType = EXPENSE_TYPES.find((t) => t.value === expenseForm.expenseType);
+    const partyLabel = selectedType?.partyLabel || "Name / Description";
+
+    return (
+      <>
+        <div className="pageTitle">
+          <h2>🧾 Daily Expenses</h2>
+          <p>All daily expenses — Party Commission, Courier, Petrol, Rent & More</p>
+        </div>
+
+        {/* Summary Cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "15px", marginBottom: "20px" }}>
+          <div className="card" style={{ padding: "20px", textAlign: "center" }}>
+            <div style={{ fontSize: "12px", color: "#666" }}>TODAY'S EXPENSE</div>
+            <div style={{ fontSize: "24px", fontWeight: "bold", color: "#c62828" }}>₹{money(todayTotal)}</div>
+          </div>
+          <div className="card" style={{ padding: "20px", textAlign: "center" }}>
+            <div style={{ fontSize: "12px", color: "#666" }}>THIS MONTH</div>
+            <div style={{ fontSize: "24px", fontWeight: "bold", color: "#1769aa" }}>₹{money(monthTotal)}</div>
+          </div>
+          <div className="card" style={{ padding: "20px", textAlign: "center" }}>
+            <div style={{ fontSize: "12px", color: "#666" }}>FILTERED TOTAL</div>
+            <div style={{ fontSize: "24px", fontWeight: "bold", color: "#16855b" }}>₹{money(totalAmount)}</div>
+          </div>
+          <div className="card" style={{ padding: "20px", textAlign: "center" }}>
+            <div style={{ fontSize: "12px", color: "#666" }}>TOTAL ENTRIES</div>
+            <div style={{ fontSize: "24px", fontWeight: "bold", color: "#333" }}>{filteredExpenses.length}</div>
+          </div>
+        </div>
+
+        {/* Add/Edit Form */}
+        <div className="card">
+          <div className="sectionTitle">
+            {editingExpense ? "✏️ EDIT EXPENSE" : "➕ ADD NEW EXPENSE"}
+          </div>
+          <div className="formGrid">
+            <div className="field">
+              <label>Expense Date *</label>
+              <input type="date" name="expenseDate" value={expenseForm.expenseDate} onChange={updateExpense} />
+            </div>
+            <div className="field">
+              <label>Expense Type *</label>
+              <select name="expenseType" value={expenseForm.expenseType} onChange={updateExpense}>
+                <option value="">Select Type</option>
+                {EXPENSE_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>{partyLabel}</label>
+              <input name="partyName" value={expenseForm.partyName} onChange={updateExpense} placeholder={partyLabel} />
+            </div>
+            <div className="field">
+              <label>Amount (₹) *</label>
+              <input type="number" name="amount" value={expenseForm.amount} onChange={updateExpense} placeholder="1000" />
+            </div>
+            <div className="field">
+              <label>Payment Mode</label>
+              <select name="paymentMode" value={expenseForm.paymentMode} onChange={updateExpense}>
+                <option value="CASH">Cash</option>
+                <option value="BANK">Bank / NEFT</option>
+                <option value="UPI">UPI</option>
+                <option value="CHEQUE">Cheque</option>
+                <option value="CARD">Card</option>
+              </select>
+            </div>
+            <div className="field full">
+              <label>Remarks / Note</label>
+              <textarea name="remarks" value={expenseForm.remarks} onChange={updateExpense} placeholder="Any note about this expense..." rows="2" />
+            </div>
+            <div className="field full">
+              <label>Bill / Receipt Upload (Optional)</label>
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  try {
+                    alert("Uploading bill...");
+                    const url = await uploadToR2(file, "expense-bills", `expense-${Date.now()}`);
+                    setExpenseForm((prev) => ({ ...prev, billUrl: url }));
+                    alert("✅ Bill uploaded!");
+                  } catch (err) {
+                    alert("❌ Upload failed: " + err.message);
+                  }
+                }}
+                style={{ padding: "10px", border: "1px solid #ccc", borderRadius: "6px", width: "100%" }}
+              />
+              {expenseForm.billUrl && (
+                <div style={{ marginTop: "10px" }}>
+                  <a href={expenseForm.billUrl} target="_blank" rel="noreferrer" className="blueBtn" style={{ textDecoration: "none", padding: "6px 12px", display: "inline-block", fontSize: "12px" }}>
+                    📄 View Uploaded Bill
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="formButtons">
+            {editingExpense && (
+              <button className="grayBtn" onClick={() => { setEditingExpense(null); setExpenseForm(createEmptyExpense()); }}>
+                CANCEL
+              </button>
+            )}
+            <button className="greenBtn" onClick={saveExpense}>
+              {editingExpense ? "UPDATE EXPENSE" : "SAVE EXPENSE"}
+            </button>
+          </div>
+        </div>
+
+        {/* Expense List */}
+        <div className="card">
+          <div className="listHeader">
+            <div>
+              <h2>Expense List</h2>
+              <p>Total: {expenses.length}</p>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: "10px", marginBottom: "15px" }}>
+            <input className="search" placeholder="🔍 Search party name / remarks..." value={expenseSearch} onChange={(e) => setExpenseSearch(e.target.value)} />
+            <select className="search" value={expenseTypeFilter} onChange={(e) => setExpenseTypeFilter(e.target.value)}>
+              <option value="">All Types</option>
+              {EXPENSE_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            <input type="date" className="search" value={expenseDateFrom} onChange={(e) => setExpenseDateFrom(e.target.value)} title="From Date" />
+            <input type="date" className="search" value={expenseDateTo} onChange={(e) => setExpenseDateTo(e.target.value)} title="To Date" />
+          </div>
+
+          <div className="tableWrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Party / Name</th>
+                  <th>Amount</th>
+                  <th>Mode</th>
+                  <th>Remarks</th>
+                  <th>Bill</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredExpenses.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" style={{ textAlign: "center", padding: "40px", color: "#999" }}>
+                      No expenses found. Add your first expense above ☝️
+                    </td>
+                  </tr>
+                ) : (
+                  filteredExpenses.map((item) => {
+                    const typeLabel = EXPENSE_TYPES.find((t) => t.value === item.expense_type)?.label || item.expense_type;
+                    return (
+                      <tr key={item.id}>
+                        <td>{formatDate(item.expense_date)}</td>
+                        <td>
+                          <span style={{ background: "#e3f2fd", color: "#1769aa", padding: "3px 10px", borderRadius: "10px", fontSize: "11px", fontWeight: "bold", whiteSpace: "nowrap" }}>
+                            {typeLabel}
+                          </span>
+                        </td>
+                        <td>{item.party_name || "-"}</td>
+                        <td style={{ fontWeight: "bold", color: "#c62828" }}>₹{money(item.amount)}</td>
+                        <td style={{ fontSize: "11px" }}>{item.payment_mode || "CASH"}</td>
+                        <td style={{ fontSize: "12px", maxWidth: "200px" }}>{item.remarks || "-"}</td>
+                        <td style={{ textAlign: "center" }}>
+                          {item.bill_url ? (
+                            <a href={item.bill_url} target="_blank" rel="noreferrer" style={{ textDecoration: "none", fontSize: "16px" }} title="View Bill">📄</a>
+                          ) : (
+                            <span style={{ color: "#ccc" }}>—</span>
+                          )}
+                        </td>
+                        <td>
+                          <button className="editBtn" onClick={() => editExpense(item)}>EDIT</button>
+                          <button className="deleteBtn" onClick={() => deleteExpense(item.id)}>DELETE</button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {Object.keys(byCategory).length > 0 && (
+            <>
+              <div className="sectionTitle" style={{ marginTop: "25px" }}>📊 Category-wise Breakdown (Filtered)</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
+                {Object.entries(byCategory).map(([type, amt]) => {
+                  const label = EXPENSE_TYPES.find((t) => t.value === type)?.label || type;
+                  return (
+                    <div key={type} style={{ padding: "12px", background: "#f5f5f5", borderRadius: "8px", borderLeft: "4px solid #1769aa" }}>
+                      <div style={{ fontSize: "11px", color: "#666" }}>{label}</div>
+                      <div style={{ fontSize: "16px", fontWeight: "bold", color: "#c62828" }}>₹{money(amt)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </>
+    );
+  };
+
+
   // =========================================================
 // 🔥 SEND LHB PAYMENT DETAILS VIA WHATSAPP
 // =========================================================
@@ -4895,6 +5252,9 @@ Thank You`;
   
   window.location.href = whatsappUrl;
 };
+
+
+
         // =========================================================
   // LORRY HIRE BALANCE PAGE — FULL FIXED VERSION
   // =========================================================
@@ -15881,6 +16241,11 @@ const exportToExcel = (data, filename, headers) => {
           {userRole === "ADMIN" && (
             <button onClick={() => setPage("reports")}>📊 Reports</button>
           )}
+
+          {userRole === "ADMIN" && (
+  <button onClick={() => setPage("expenses")}>🧾 Daily Expenses</button>
+)}
+
       
 
 </aside>
@@ -15899,6 +16264,7 @@ const exportToExcel = (data, filename, headers) => {
   {page === "tracking" && renderTrackingPage()}
     {page === "dailyTracking" && renderDailyTrackingPage()}
       {page === "customerVisits" && renderCustomerVisitsPage()}
+      {page === "expenses" && userRole === "ADMIN" && renderExpensesPage()}
 
 </main>
       </div>
