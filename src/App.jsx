@@ -1576,18 +1576,27 @@ const sendBillsEmail = async () => {
       return;
     }
 
-    try {
+       try {
       if (editingVehicle) {
         let { error } = await supabase
           .from('vehicles')
-          .update({ ...vehicleForm, vehicleNo: number })
-          .eq('id', editingVehicle);
+          .update({ 
+            ...vehicleForm, 
+            vehicleNo: number,
+            firm_id: currentFirm?.id || null      // 🔥 YE LINE ADD KARO
+          })
+          .eq('id', editingVehicle)
+          .eq('firm_id', currentFirm?.id);        // 🔥 YE LINE ADD KARO
         if (error) throw error;
         alert("✅ Vehicle updated successfully.");
       } else {
         let { error } = await supabase
           .from('vehicles')
-          .insert([{ ...vehicleForm, vehicleNo: number }]);
+          .insert([{ 
+            ...vehicleForm, 
+            vehicleNo: number,
+            firm_id: currentFirm?.id || null      // 🔥 YE LINE ADD KARO
+          }]);
         if (error) throw error;
         alert("✅ Vehicle saved successfully.");
       }
