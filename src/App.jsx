@@ -73,6 +73,19 @@ const COMPANY = {
   email: "cdpr.dhr@gmail.com",
 };
 
+
+// Code mein COMPANY object ke theek niche ye add karo
+const getFirmInfo = (currentFirm, defaultCompany) => {
+  return {
+    name: currentFirm?.firm_name || defaultCompany.name,
+    address: currentFirm?.address || defaultCompany.address,
+    mobile: currentFirm?.mobile || defaultCompany.mobile,
+    gst: currentFirm?.gst || defaultCompany.gst,
+    state: currentFirm?.state || defaultCompany.state,
+    code: currentFirm?.code || defaultCompany.code,
+    email: currentFirm?.email || defaultCompany.email,
+  };
+};
 const emptyCustomer = {
   name: "",
   partyType: "BOTH",
@@ -264,6 +277,12 @@ function getNextNumber(items, field, prefix) {
 
 function App() {
   const [page, setPage] = useState("dashboard");
+
+  // 🔥🔥🔥 FIRM STATE 🔥🔥🔥
+const [firms, setFirms] = useState([]);
+const [currentFirm, setCurrentFirm] = useState(null);
+const [firmLoading, setFirmLoading] = useState(true);
+// 🔥🔥🔥 END 🔥🔥🔥
 
     // 🔥🔥🔥 YAHAN PASTE KARO — EXPENSE STATES 🔥🔥🔥
   const [expenses, setExpenses] = useState([]);
@@ -622,75 +641,161 @@ const lhbPending = () => {
     }
   };
 
- // =========================================================
-  // LOAD ALL DATA FUNCTION
-  // =========================================================
-
-  const loadAllData = async () => {
-    try {
-      let { data: customersData } = await supabase.from('customers').select('*');
-      if (customersData) setCustomers(customersData);
-
-      let { data: vehiclesData } = await supabase.from('vehicles').select('*');
-      if (vehiclesData) setVehicles(vehiclesData);
-
-      let { data: biltiesData } = await supabase.from('bilties').select('*');
-      if (biltiesData) setBilties(biltiesData);
-
-     let { data: tripsData } = await supabase.from('trips').select('*');
-if (tripsData) {
-  const parsedTrips = tripsData.map(trip => {
-    let parsedBilties = [];
-    try {
-      if (typeof trip.selectedBilties === 'string') {
-        // DB me text type hai, JSON string ko array me convert karo
-        parsedBilties = JSON.parse(trip.selectedBilties);
-      } else if (Array.isArray(trip.selectedBilties)) {
-        parsedBilties = trip.selectedBilties;
-      }
-    } catch (e) {
-      console.warn("Parse error for trip:", trip.tripNo, e);
-      parsedBilties = [];
-    }
+  // 🔥🔥🔥 FIRM LOAD FUNCTION 🔥🔥🔥
+const loadFirms = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('firms')
+      .select('*')
+      .eq('is_active', true)
+      .order('firm_name');
     
-    // Agar selectedBilties empty hai lekin biltyId hai, toh biltyId daalo
-    if (parsedBilties.length === 0 && trip.biltyId) {
-      parsedBilties = [trip.biltyId];
-    }
+    if (error) throw error;
     
-    return { ...trip, selectedBilties: parsedBilties };
-  });
-  setTrips(parsedTrips);
-}
-
-      let { data: podsData } = await supabase.from('pods').select('*');
-      if (podsData) setPods(podsData);
-
-      let { data: billsData } = await supabase.from('bills').select('*');
-      if (billsData) setBills(billsData);
-
-      let { data: accountsData } = await supabase.from('accounts').select('*');
-      if (accountsData) setAccounts(accountsData);
-
-            let { data: visitsData } = await supabase.from('customer_visits').select('*').order('visit_date', { ascending: false });
-      if (visitsData) setCustomerVisits(visitsData);
-      // 🔥 TRACKING VEHICLES LOAD
-let { data: trackingData } = await supabase.from('tracking').select('*');
-if (trackingData) setTrackingVehicles(trackingData);
-
-// 🔥🔥🔥 YAHAN ADD KARO 🔥🔥🔥
-let { data: expensesData } = await supabase.from('expenses').select('*').order('expense_date', { ascending: false });
-if (expensesData) setExpenses(expensesData);
-
-    } catch (e) {
-      console.log("Error loading data:", e);
+    setFirms(data || []);
+    
+    // LocalStorage se last selected firm lo
+    const savedFirmId = localStorage.getItem('selected_firm_id');
+    const savedFirm = data?.find(f => String(f.id) === String(savedFirmId));
+    
+    // Agar saved firm mil gaya to wo select karo, warna pehla firm
+    if (savedFirm) {
+      setCurrentFirm(savedFirm);
+    } else if (data && data.length > 0) {
+      setCurrentFirm(data[0]);
+      localStorage.setItem('selected_firm_id', data[0].id);
     }
-  };
+  } catch (e) {
+    console.error("Firm load error:", e);
+    alert("❌ Firm load failed: " + e.message);
+  } finally {
+    setFirmLoading(false);
+  }
+};
 
-  useEffect(() => {
+// =========================================================
+// 🔥 LOAD ALL DATA — FIRM WISE FILTER 🔥
+// =========================================================
+const loadAllData = async () => {
+  try {
+    // Agar firm select nahi hui to kuch mat karo
+    if (!currentFirm) {
+      console.log("⚠️ No firm selected, skipping data load");
+      return;
+    }
+
+    const firmId = currentFirm.id;
+    console.log("📂 Loading data for firm:", currentFirm.firm_name);
+
+    // ✅ CUSTOMERS — firm filter
+    let { data: customersData } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('firm_id', firmId);
+    if (customersData) setCustomers(customersData);
+
+    // ✅ VEHICLES — firm filter
+    let { data: vehiclesData } = await supabase
+      .from('vehicles')
+      .select('*')
+      .eq('firm_id', firmId);
+    if (vehiclesData) setVehicles(vehiclesData);
+
+    // ✅ BILTIES — firm filter
+    let { data: biltiesData } = await supabase
+      .from('bilties')
+      .select('*')
+      .eq('firm_id', firmId);
+    if (biltiesData) setBilties(biltiesData);
+
+    // ✅ TRIPS — firm filter + selectedBilties parse
+    let { data: tripsData } = await supabase
+      .from('trips')
+      .select('*')
+      .eq('firm_id', firmId);
+    if (tripsData) {
+      const parsedTrips = tripsData.map(trip => {
+        let parsedBilties = [];
+        try {
+          if (typeof trip.selectedBilties === 'string') {
+            parsedBilties = JSON.parse(trip.selectedBilties);
+          } else if (Array.isArray(trip.selectedBilties)) {
+            parsedBilties = trip.selectedBilties;
+          }
+        } catch (e) {
+          console.warn("Parse error for trip:", trip.tripNo, e);
+          parsedBilties = [];
+        }
+        if (parsedBilties.length === 0 && trip.biltyId) {
+          parsedBilties = [trip.biltyId];
+        }
+        return { ...trip, selectedBilties: parsedBilties };
+      });
+      setTrips(parsedTrips);
+    }
+
+    // ✅ PODS — firm filter
+    let { data: podsData } = await supabase
+      .from('pods')
+      .select('*')
+      .eq('firm_id', firmId);
+    if (podsData) setPods(podsData);
+
+    // ✅ BILLS — firm filter
+    let { data: billsData } = await supabase
+      .from('bills')
+      .select('*')
+      .eq('firm_id', firmId);
+    if (billsData) setBills(billsData);
+
+    // ✅ ACCOUNTS — firm filter
+    let { data: accountsData } = await supabase
+      .from('accounts')
+      .select('*')
+      .eq('firm_id', firmId);
+    if (accountsData) setAccounts(accountsData);
+
+    // ✅ CUSTOMER VISITS — firm filter
+    let { data: visitsData } = await supabase
+      .from('customer_visits')
+      .select('*')
+      .eq('firm_id', firmId)
+      .order('visit_date', { ascending: false });
+    if (visitsData) setCustomerVisits(visitsData);
+
+    // ✅ EXPENSES — firm filter
+    let { data: expensesData } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('firm_id', firmId)
+      .order('expense_date', { ascending: false });
+    if (expensesData) setExpenses(expensesData);
+
+    // ✅ TRACKING VEHICLES
+    let { data: trackingData } = await supabase.from('tracking').select('*');
+    if (trackingData) setTrackingVehicles(trackingData);
+
+    console.log("✅ Data loaded for firm:", currentFirm.firm_name);
+  } catch (e) {
+    console.log("❌ Error loading data:", e);
+  }
+};
+
+// =========================================================
+// 🔥 USE EFFECTS — FIRM LOAD + DATA LOAD 🔥
+// =========================================================
+
+// Firm pehle load karo
+useEffect(() => {
+  loadFirms();
+}, []);
+
+// Jab firm change ho to data reload karo
+useEffect(() => {
+  if (currentFirm) {
     loadAllData();
-  }, []);
-
+  }
+}, [currentFirm]);  
 // =========================================================
   // AUTO-BACKUP   // ← YE NAYA CODE YAHAN PASTE KAREIN
   // =========================================================
@@ -939,6 +1044,7 @@ if (expensesData) setExpenses(expensesData);
 // 🔥 GENERATE PROFESSIONAL PDF BILL WITH DIGITAL SIGNATURE
 // =========================================================
 const generateBillPDF = (bill) => {
+    const firmInfo = getFirmInfo(currentFirm, COMPANY); // 🔥 YE LINE ADD KARO
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -948,19 +1054,19 @@ const generateBillPDF = (bill) => {
   doc.setFontSize(20);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(16, 42, 67);
-  doc.text(COMPANY.name, pageWidth / 2, yPos, { align: 'center' });
+  doc.text(firmInfo.name, pageWidth / 2, yPos, { align: 'center' });
   yPos += 7;
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(80, 80, 80);
-  doc.text(COMPANY.address, pageWidth / 2, yPos, { align: 'center' });
+  doc.text(firmInfo.address, pageWidth / 2, yPos, { align: 'center' });
   yPos += 5;
-  doc.text(`Mobile: ${COMPANY.mobile}`, pageWidth / 2, yPos, { align: 'center' });
+  doc.text(`Mobile: ${firmInfo.mobile}`, pageWidth / 2, yPos, { align: 'center' });
   yPos += 5;
-  doc.text(`GSTIN/UIN: ${COMPANY.gst} | State: ${COMPANY.state}, Code: ${COMPANY.code}`, pageWidth / 2, yPos, { align: 'center' });
+  doc.text(`GSTIN/UIN: ${firmInfo.gst} | State: ${firmInfo.state}, Code: ${firmInfo.code}`, pageWidth / 2, yPos, { align: 'center' });
   yPos += 5;
-  doc.text(`E-Mail: ${COMPANY.email}`, pageWidth / 2, yPos, { align: 'center' });
+  doc.text(`E-Mail: ${firmInfo.email}`, pageWidth / 2, yPos, { align: 'center' });
   yPos += 4;
 
   // Line
@@ -1108,7 +1214,7 @@ const generateBillPDF = (bill) => {
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text(`For ${COMPANY.name}`, pageWidth - 65, pageHeight - 27);
+  doc.text(`For ${firmInfo.name}`, pageWidth - 65, pageHeight - 27);
 
   // Footer
   doc.setFont('helvetica', 'italic');
@@ -1137,6 +1243,8 @@ const blobToBase64 = (blob) => {
 // 🔥 SEND BILLS EMAIL VIA SUPABASE EDGE FUNCTION
 // =========================================================
 const sendBillsEmail = async () => {
+    const firmInfo = getFirmInfo(currentFirm, COMPANY); // 🔥 YE LINE ADD KARO
+
   const validEmails = emailRecipients.filter(e => e.trim() && e.includes("@"));
 
   if (selectedBillsForEmail.length === 0) {
@@ -1184,22 +1292,22 @@ const sendBillsEmail = async () => {
             },
             body: JSON.stringify({
               to: recipient,
-              subject: emailSubject || `Invoice from ${COMPANY.name}`,
+              subject: emailSubject || `Invoice from ${firmInfo.name}`, // ✅ BAAD ME
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
                   <div style="background: #102a43; color: white; padding: 20px; text-align: center;">
-                    <h2 style="margin: 0;">${COMPANY.name}</h2>
+              <h2 style="margin: 0;">${firmInfo.name}</h2> // ✅ BAAD ME
                     <p style="margin: 5px 0 0; font-size: 13px;">Transport Management System</p>
                   </div>
                   <div style="padding: 25px 20px;">
                     <p>${(emailBody || "").replace(/\n/g, "<br/>")}</p>
                   </div>
                   <div style="background: #f5f7fa; padding: 15px 20px; font-size: 12px; color: #666; border-top: 2px solid #102a43;">
-                    <strong>${COMPANY.name}</strong><br/>
-                    ${COMPANY.address}<br/>
-                    Mobile: ${COMPANY.mobile}<br/>
-                    GSTIN: ${COMPANY.gst}<br/>
-                    Email: ${COMPANY.email}
+              <strong>${firmInfo.name}</strong><br/> // ✅ BAAD ME
+              ${firmInfo.address}<br/> // ✅ BAAD ME
+              Mobile: ${firmInfo.mobile}<br/> // ✅ BAAD ME
+              GSTIN: ${firmInfo.gst}<br/> // ✅ BAAD ME
+              Email: ${firmInfo.email} // ✅ BAAD ME
                   </div>
                 </div>
               `,
@@ -1348,14 +1456,15 @@ const sendBillsEmail = async () => {
   try {
     // 🔥 SIRF EXISTING COLUMNS BHEJO - stateCode HATAO
     const customerData = {
-      name: name,
-      gst: gst,
-      partyType: customerForm.partyType || "BOTH",
-      address: customerForm.address || "",
-      state: customerForm.state || "",
-      mobile: customerForm.mobile || "",
-      email: customerForm.email || "",
-    };
+  name: name,
+  gst: gst,
+  partyType: customerForm.partyType || "BOTH",
+  address: customerForm.address || "",
+  state: customerForm.state || "",
+  mobile: customerForm.mobile || "",
+  email: customerForm.email || "",
+  firm_id: currentFirm?.id || null,  // 🔥 YE LINE ADD KARO
+};
     
     console.log("📝 Saving customer:", customerData);
 
@@ -1643,6 +1752,8 @@ const sendBillsEmail = async () => {
     ewayBills: biltyForm.ewayBills || [],
     materialValue: String(biltyForm.materialValue || 0),
     remarks: biltyForm.remarks || "",
+      firm_id: currentFirm?.id || null,  // 🔥 YE LINE ADD KARO
+
   };
 
   console.log("💾 FINAL DATA SENDING:", finalData);
@@ -1948,6 +2059,8 @@ const selectTripBilty = (id) => {
         ewayBillExpiry: tripForm.ewayBillExpiry || null,
         materialValue: String(tripForm.materialValue || 0),
                 brokerSlipUrl: tripForm.brokerSlipUrl || "", // 🔥 YE LINE ADD KARO
+                  firm_id: currentFirm?.id || null,  // 🔥 YE LINE ADD KARO
+
 
       };
 
@@ -2041,6 +2154,8 @@ const selectTripBilty = (id) => {
         ewayBillNo: tripForm.ewayBillNo || "",
         ewayBillExpiry: tripForm.ewayBillExpiry || null,
         materialValue: String(tripForm.materialValue || 0),
+          firm_id: currentFirm?.id || null,  // 🔥 YE LINE ADD KARO
+
       };
 
       tripRecords.push(tripData);
@@ -2256,6 +2371,8 @@ const saveExpense = async () => {
       trip_no: expenseForm.tripNo || null,
       booking_freight: Number(expenseForm.bookingFreight || 0),
       lorry_hire: Number(expenseForm.lorryHire || 0),
+        firm_id: currentFirm?.id || null,  // 🔥 YE LINE ADD KARO
+
     };
 
     if (editingExpense) {
@@ -2458,15 +2575,17 @@ const saveUtrNumber = async () => {
 };
   try {
     // 🔥 Same tripNo ki SAARI rows update karo
-    const tripIdsToUpdate = [];
+        const tripIdsToUpdate = [];
     
-    // Agar grouped trip hai (same tripNo wali saari rows)
+    // Agar grouped trip hai (same tripNo wali saari rows) — FIRM-WISE
     trips.forEach(t => {
-      if (String(t.tripNo) === String(trip.tripNo)) {
+      if (
+        String(t.tripNo) === String(trip.tripNo) &&
+        String(t.firm_id) === String(currentFirm?.id)
+      ) {
         tripIdsToUpdate.push(t.id);
       }
     });
-
     if (tripIdsToUpdate.length === 0) {
       tripIdsToUpdate.push(trip.id);
     }
@@ -2477,15 +2596,15 @@ const saveUtrNumber = async () => {
       podUpdatedAt: new Date().toISOString()
     };
 
-    for (const tId of tripIdsToUpdate) {
+        for (const tId of tripIdsToUpdate) {
       const { error } = await supabase
         .from('trips')
         .update(updateData)
-        .eq('id', tId);
+        .eq('id', tId)
+        .eq('firm_id', currentFirm?.id);
       
       if (error) throw error;
     }
-
     alert(`✅ POD Received date updated successfully!\n\nTrip: ${trip.tripNo}\nDate: ${formatDate(podDate)}`);
     await loadAllData();
   } catch (e) {
@@ -5512,6 +5631,8 @@ const renderBiltyPage = () => {
 // 🔥 SEND LHB PAYMENT DETAILS VIA WHATSAPP
 // =========================================================
 const sendLHBWhatsApp = (trip, phone) => {
+    const firmInfo = getFirmInfo(currentFirm, COMPANY); // 🔥 YE LINE ADD KARO
+
   // Bilty numbers nikalo
   let biltyNumbers = "";
   if (Array.isArray(trip._allBiltyNos) && trip._allBiltyNos.length > 0) {
@@ -5557,7 +5678,7 @@ const sendLHBWhatsApp = (trip, phone) => {
 
   // 🔥 MESSAGE
   const message = 
-`${COMPANY.name}
+`${firmInfo.name}
 
 PAYMENT RECEIPT
 
@@ -5645,6 +5766,8 @@ Thank You`;
           .from('lhb_history')
           .select('*')
           .eq('trip_no', tripNo)
+                .eq('firm_id', currentFirm?.id)  // 🔥 YE LINE ADD KARO
+
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -5851,7 +5974,8 @@ Thank You`;
             total_paid: String(totalPayment),
             pending: String(lhbCurrentTotal() - totalPayment),
             remarks: lhbRemarks || "",
-            action_type: "PAYMENT"
+            action_type: "PAYMENT",
+            firm_id: currentFirm?.id || null
           }]);
         } catch (histErr) {
           console.log("History save failed:", histErr);
@@ -6373,6 +6497,8 @@ Thank You`;
     documentNameBack: podForm.documentNameBack || "",
     documentTypeBack: podForm.documentTypeBack || "",
     documentDataBack: backUrl,     // 🔥 R2 URL save karo
+      firm_id: currentFirm?.id || null,  // 🔥 YE LINE ADD KARO
+
   };
   try {
 // 🔥 YE 2 LINES YAHAN ADD KARO (try ke theek baad)
@@ -6399,7 +6525,7 @@ Thank You`;
       try {
         const podDate = podForm.deliveryDate || new Date().toISOString().slice(0, 10);
         
-        // Trip table mein same tripNo wali saari rows update karo
+                // Trip table mein same tripNo wali saari rows update karo (FIRM-WISE)
         const { error: tripUpdateError } = await supabase
           .from('trips')
           .update({ 
@@ -6407,7 +6533,9 @@ Thank You`;
             podReceivedDate: podDate,
             podUpdatedAt: new Date().toISOString()
           })
-          .eq('tripNo', podForm.tripNo);
+          .eq('tripNo', podForm.tripNo)
+          .eq('firm_id', currentFirm?.id);
+          
 
         if (tripUpdateError) {
           console.error("Trip POD update error:", tripUpdateError);
@@ -9738,8 +9866,10 @@ const importBillsFromExcel = (e) => {
             total: String(amount),
             igstRate: "5",
             remarks: `Imported from ledger | Pending: ₹${pending} | Overdue: ${overdueDays} days | Submission: ${submissionDate}`,
-            createdAt: new Date().toISOString()
+                        createdAt: new Date().toISOString(),
+            firm_id: currentFirm?.id || null
           };
+
 
           const { error } = await supabase.from('bills').insert([billData]);
           if (error) throw error;
@@ -13339,6 +13469,8 @@ customerData.totalChallanDeduction += challanBiltyDeduction;
       address: visitForm.address.trim(),
       remarks: visitForm.remarks.trim(),
       persons: cleanPersons,
+        firm_id: currentFirm?.id || null,  // 🔥 YE LINE ADD KARO
+
     };
 
     try {
@@ -14420,6 +14552,7 @@ const renderDailyTrackingPage = () => {
   // =========================================================
 
   const renderPrintBilty = () => {
+    const firmInfo = getFirmInfo(currentFirm, COMPANY);
     if (!printBilty) return null;
 
     const balance =
@@ -14430,27 +14563,23 @@ const renderDailyTrackingPage = () => {
       <div className="printOverlay">
         <div className="printDocument biltyPrintDocument">
           <div className="printHeader">
-            <h1>{COMPANY.name}</h1>
+            <h1>{firmInfo.name}</h1>
+<p>{firmInfo.address}</p>
+<p><strong>Mobile:</strong> {firmInfo.mobile}</p>
 
-            <p>{COMPANY.address}</p>
-
-            <p>
-              <strong>Mobile:</strong>{" "}
-              {COMPANY.mobile}
-            </p>
 
             <p>
               <strong>GSTIN/UIN:</strong>{" "}
-              {COMPANY.gst}{" "}
+              {firmInfo.gst}{" "} // ✅ BAAD ME
               | <strong>State:</strong>{" "}
-              {COMPANY.state}{" "}
+              {firmInfo.state}{" "} // ✅ BAAD ME
               | <strong>Code:</strong>{" "}
-              {COMPANY.code}
+              {firmInfo.code} // ✅ BAAD ME
             </p>
 
             <p>
               <strong>E-Mail:</strong>{" "}
-              {COMPANY.email}
+              {firmInfo.email} // ✅ BAAD ME
             </p>
           </div>
 
@@ -14676,7 +14805,7 @@ const renderDailyTrackingPage = () => {
 
             <div>
               <strong>
-                FOR {COMPANY.name}
+            FOR {firmInfo.name} // ✅ BAAD ME
               </strong>
               <div className="signatureSpace">
                 Authorized Signatory
@@ -14713,6 +14842,8 @@ const renderDailyTrackingPage = () => {
 // 🔥 SEND TRIP DETAILS VIA WHATSAPP
 // =========================================================
 const sendTripWhatsApp = (trip, phone) => {
+    const firmInfo = getFirmInfo(currentFirm, COMPANY); // 🔥 YE LINE ADD KARO
+
   // Saari bilty numbers nikalo
   let biltyNumbers = "";
   if (Array.isArray(trip.selectedBilties) && trip.selectedBilties.length > 0) {
@@ -14747,7 +14878,7 @@ const sendTripWhatsApp = (trip, phone) => {
 
   // 🔥 WHATSAPP MESSAGE TEMPLATE
   const message = 
-`🚛 *${COMPANY.name}*
+`🚛 *${firmInfo.name}*
 ━━━━━━━━━━━━━━━━━━━━
 
 *TRIP DETAILS*
@@ -14798,6 +14929,8 @@ ${trip.brokerName ? `🤝 Broker: ${trip.brokerName}\n` : ""}${trip.remarks ? `�
 
   const renderPrintTrip = () => {
     if (!printTrip) return null;
+      const firmInfo = getFirmInfo(currentFirm, COMPANY); // 🔥 YE LINE ADD KARO
+
 
     const hire = Number(printTrip.lorryFreight || 0);
     const advance = Number(printTrip.advance || 0);
@@ -14821,11 +14954,11 @@ ${trip.brokerName ? `🤝 Broker: ${trip.brokerName}\n` : ""}${trip.remarks ? `�
       <div className="printOverlay">
         <div className="printDocument tripPrintDocument">
           <div className="printHeader">
-            <h1>{COMPANY.name}</h1>
-            <p>{COMPANY.address}</p>
-            <p><strong>Mobile:</strong> {COMPANY.mobile}</p>
-            <p><strong>GSTIN/UIN:</strong> {COMPANY.gst} | <strong>State:</strong> {COMPANY.state}</p>
-            <p><strong>E-Mail:</strong> {COMPANY.email}</p>
+            <h1>{firmInfo.name}</h1> // ✅ BAAD ME
+            <p>{firmInfo.address}</p> // ✅ BAAD ME
+            <p><strong>Mobile:</strong> {firmInfo.mobile}</p> // ✅ BAAD ME
+            <p><strong>GSTIN/UIN:</strong> {firmInfo.gst} | <strong>State:</strong> {firmInfo.state}</p> // ✅ BAAD ME
+            <p><strong>E-Mail:</strong> {firmInfo.email}</p> // ✅ BAAD ME
           </div>
 
           <div className="printTitle">TRIP / DISPATCH DOCUMENT</div>
@@ -15014,7 +15147,7 @@ ${trip.brokerName ? `🤝 Broker: ${trip.brokerName}\n` : ""}${trip.remarks ? `�
               <div className="signatureSpace">Signature</div>
             </div>
             <div>
-              <strong>FOR {COMPANY.name}</strong>
+        <strong>FOR {firmInfo.name}</strong> // ✅ BAAD ME
               <div className="signatureSpace">Authorized Signatory</div>
             </div>
           </div>
@@ -15053,6 +15186,8 @@ ${trip.brokerName ? `🤝 Broker: ${trip.brokerName}\n` : ""}${trip.remarks ? `�
 
 const renderPrintPOD = () => {
   if (!printPOD) return null;
+    const firmInfo = getFirmInfo(currentFirm, COMPANY); // 🔥 YE LINE ADD KARO
+
 
   return (
     <div className="printOverlay">
@@ -15061,28 +15196,17 @@ const renderPrintPOD = () => {
 
         <div className="printHeader">
 
-          <h1>
-            {COMPANY.name}
-          </h1>
+                    <h1>{firmInfo.name}</h1> // ✅ BAAD ME
 
-          <p>
-            {COMPANY.address}
-          </p>
+                   <p>{firmInfo.address}</p> // ✅ BAAD ME
 
-          <p>
-            <strong>Mobile:</strong>{" "}
-            {COMPANY.mobile}
-          </p>
+                   <p><strong>Mobile:</strong> {firmInfo.mobile}</p> // ✅ BAAD ME
 
-          <p>
-            <strong>GSTIN/UIN:</strong>{" "}
-            {COMPANY.gst}
-          </p>
 
-          <p>
-            <strong>E-Mail:</strong>{" "}
-            {COMPANY.email}
-          </p>
+                  <p><strong>GSTIN/UIN:</strong> {firmInfo.gst}</p> // ✅ BAAD ME
+
+                   <p><strong>E-Mail:</strong> {firmInfo.email}</p> // ✅ BAAD ME
+
 
         </div>
 
@@ -15714,6 +15838,8 @@ const renderUtrModal = () => {
   };
 const renderPrintMoneyReceipt = () => {
   if (!printMoneyReceipt) return null;
+    const firmInfo = getFirmInfo(currentFirm, COMPANY); // 🔥 YE LINE ADD KARO
+
 
   const receipt = printMoneyReceipt;
 
@@ -15747,28 +15873,15 @@ const renderPrintMoneyReceipt = () => {
 
         <div className="printHeader">
 
-          <h1>
-            {COMPANY.name}
-          </h1>
+                    <h1>{firmInfo.name}</h1> // ✅ BAAD ME
 
-          <p>
-            {COMPANY.address}
-          </p>
+                   <p>{firmInfo.address}</p> // ✅ BAAD ME
 
-          <p>
-            <strong>Mobile:</strong>{" "}
-            {COMPANY.mobile}
-          </p>
+                   <p><strong>Mobile:</strong> {firmInfo.mobile}</p> // ✅ BAAD ME
 
-          <p>
-            <strong>GSTIN/UIN:</strong>{" "}
-            {COMPANY.gst}
-          </p>
+                    <p><strong>GSTIN/UIN:</strong> {firmInfo.gst}</p> // ✅ BAAD ME
 
-          <p>
-            <strong>E-Mail:</strong>{" "}
-            {COMPANY.email}
-          </p>
+                   <p><strong>E-Mail:</strong> {firmInfo.email}</p> // ✅ BAAD ME
 
         </div>
 
@@ -16140,6 +16253,8 @@ const renderPrintMoneyReceipt = () => {
   // =========================================================
     const renderPrintBill = () => {
     if (!printBill) return null;
+      const firmInfo = getFirmInfo(currentFirm, COMPANY); // 🔥 YE LINE ADD KARO
+
 
     // Calculate totals
     const totalAmount = printBill.items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
@@ -16191,16 +16306,16 @@ const renderPrintMoneyReceipt = () => {
           
           {/* ===== SECTION 1: COMPANY HEADER ===== */}
           <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '10px' }}>
-            <h1 style={{ margin: '0', fontSize: '22px', fontWeight: '800' }}>{COMPANY.name}</h1>
-            <p style={{ margin: '5px 0', fontSize: '10px' }}>{COMPANY.address}</p>
+            <h1 style={{ margin: '0', fontSize: '22px', fontWeight: '800' }}>{firmInfo.name}</h1> // ✅ BAAD ME
+            <p style={{ margin: '5px 0', fontSize: '10px' }}>{firmInfo.address}</p> // ✅ BAAD ME
             <p style={{ margin: '3px 0', fontSize: '9px' }}>
-              {COMPANY.mobile} | GSTIN/UIN: {COMPANY.gst}
+              {firmInfo.mobile} | GSTIN/UIN: {firmInfo.gst} // ✅ BAAD ME
             </p>
             <p style={{ margin: '3px 0', fontSize: '9px' }}>
-              State Name : {COMPANY.state}, Code : {COMPANY.code}
+              State Name : {firmInfo.state}, Code : {firmInfo.code} // ✅ BAAD ME
             </p>
             <p style={{ margin: '3px 0', fontSize: '9px' }}>
-              E-Mail : {COMPANY.email}
+              E-Mail : {firmInfo.email} // ✅ BAAD ME
             </p>
           </div>
 
@@ -16430,7 +16545,7 @@ const renderPrintMoneyReceipt = () => {
             borderTop: '2px solid #000',
             textAlign: 'right'
           }}>
-            <div style={{ fontWeight: 'bold', fontSize: '11px' }}>for {COMPANY.name}</div>
+          <div style={{ fontWeight: 'bold', fontSize: '11px' }}>for {firmInfo.name}</div> // ✅ BAAD ME
             <div style={{
               borderTop: '2px solid #000',
               paddingTop: '10px',
@@ -16512,40 +16627,139 @@ const exportToExcel = (data, filename, headers) => {
   // LOGIN CHECK
   // =========================================================
 
-  if (!isLoggedIn) {
+   if (!isLoggedIn) {
     return (
       <div className="app">
         <header className="header">
           <div>
-            <h1>{COMPANY.name}</h1>
+            <h1>{currentFirm?.firm_name || COMPANY.name}</h1>
             <p>Transport Management System</p>
           </div>
-          <div className="headerRight">
-            <strong>GSTIN: {COMPANY.gst}</strong>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            {/* 🔥🔥🔥 FIRM SELECTOR 🔥🔥🔥 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <label style={{ color: 'white', fontWeight: 'bold', fontSize: '13px' }}>
+                🏢 Firm:
+              </label>
+              <select
+                value={currentFirm?.id || ""}
+                onChange={(e) => {
+                  const selected = firms.find(f => String(f.id) === String(e.target.value));
+                  if (selected) {
+                    setCurrentFirm(selected);
+                    localStorage.setItem('selected_firm_id', selected.id);
+                  }
+                }}
+                style={{
+                  padding: '8px 15px',
+                  borderRadius: '6px',
+                  border: '2px solid white',
+                  background: 'white',
+                  color: '#102a43',
+                  fontWeight: 'bold',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  minWidth: '200px'
+                }}
+              >
+                {firms.map((firm) => (
+                  <option key={firm.id} value={firm.id}>
+                    {firm.firm_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="headerRight">
+              <strong>GSTIN: {currentFirm?.gst || COMPANY.gst}</strong>
+            </div>
           </div>
         </header>
         {renderLoginPage()}
       </div>
     );
   }
+// 🔥 Firm loading screen
+if (firmLoading) {
+  return (
+    <div className="app" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '48px', marginBottom: '15px' }}>🏢</div>
+        <h2>Loading Firms...</h2>
+        <p style={{ color: '#666' }}>Please wait</p>
+      </div>
+    </div>
+  );
+}
+
+// 🔥 Agar koi firm nahi hai
+if (!firmLoading && firms.length === 0) {
+  return (
+    <div className="app" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+      <div style={{ textAlign: 'center', padding: '40px' }}>
+        <div style={{ fontSize: '48px', marginBottom: '15px' }}>⚠️</div>
+        <h2>No Firms Found</h2>
+        <p style={{ color: '#666' }}>Supabase me firms table me data add karo</p>
+      </div>
+    </div>
+  );
+}
+
   // =========================================================
   // MAIN LAYOUT
   // =========================================================
-  return (
+   return (
     <div className="app">
 <header className="header">
   <div>
-    <h1>{COMPANY.name}</h1>
+    <h1>{currentFirm?.firm_name || COMPANY.name}</h1>
 
     <p>
       Transport Management System
     </p>
   </div>
 
-  <div className="headerRight">
-    <strong>
-      GSTIN: {COMPANY.gst}
-    </strong>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+    {/* 🔥🔥🔥 FIRM SELECTOR 🔥🔥🔥 */}
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <label style={{ color: 'white', fontWeight: 'bold', fontSize: '13px' }}>
+        🏢 Firm:
+      </label>
+      <select
+        value={currentFirm?.id || ""}
+        onChange={(e) => {
+          const selected = firms.find(f => String(f.id) === String(e.target.value));
+          if (selected) {
+            setCurrentFirm(selected);
+            localStorage.setItem('selected_firm_id', selected.id);
+          }
+        }}
+        style={{
+          padding: '8px 15px',
+          borderRadius: '6px',
+          border: '2px solid white',
+          background: 'white',
+          color: '#102a43',
+          fontWeight: 'bold',
+          fontSize: '13px',
+          cursor: 'pointer',
+          minWidth: '200px'
+        }}
+      >
+        {firms.map((firm) => (
+          <option key={firm.id} value={firm.id}>
+            {firm.firm_name}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    <div className="headerRight">
+      <strong>
+        GSTIN: {currentFirm?.gst || COMPANY.gst}
+      </strong>
+    </div>
   </div>
 </header>
       <div className="layout">
@@ -16708,10 +16922,9 @@ const exportToExcel = (data, filename, headers) => {
   </div>
 )}
 
-      <footer>
-        {COMPANY.name} © 2026 | Transport Management System
-      </footer>
-
+     <footer>
+  {currentFirm?.firm_name || COMPANY.name} © 2026 | Transport Management System {/* 🔥 CHANGE */}
+</footer>
 
 
       {printBilty && renderPrintBilty()}
