@@ -14559,7 +14559,7 @@ const renderDailyTrackingPage = () => {
   // =========================================================
   // PROFESSIONAL BILTY PRINT
   // =========================================================
-
+const balance = Number(printBilty.freight || 0) - Number(printBilty.advance || 0);
   const renderPrintBilty = () => {
     const firmInfo = getFirmInfo(currentFirm, COMPANY);
     if (!printBilty) return null;
@@ -14693,33 +14693,32 @@ const renderDailyTrackingPage = () => {
             </tbody>
           </table>
 
-          <table className="freightTable">
-            <tbody>
-              <tr>
-                <th>FREIGHT DETAILS</th>
-                <th>AMOUNT</th>
-              </tr>
+        <table className="freightTable">
+  <tbody>
+    <tr>
+      <th>FREIGHT DETAILS</th>
+      <th>AMOUNT</th>
+    </tr>
 
-              <tr>
-                <td>Total Freight</td>
-                <td>
-                  ₹{money(printBilty.freight)}
-                </td>
-              </tr>
+    {/* 🔥 SIRF TBB AT BKG — Freight amount HIDDEN */}
+    <tr>
+      <td>FREIGHT</td>
+      <td><strong>TBB AT BKG</strong></td>
+    </tr>
 
-              <tr>
-                <td>Advance Received</td>
-                <td>
-                  ₹{money(printBilty.advance)}
-                </td>
-              </tr>
+    {/* 🔥 ADVANCE bhi hide karna hai to ye hatao, warna ye rakho */}
+    <tr>
+      <td>ADVANCE RECEIVED</td>
+      <td><strong>TBB AT BKG</strong></td>
+    </tr>
 
-              <tr>
-                <th>BALANCE FREIGHT PAYABLE</th>
-                <th>₹{money(balance)}</th>
-              </tr>
-            </tbody>
-          </table>
+    {/* 🔥 BALANCE bhi hide karna hai to ye hatao, warna ye rakho */}
+    <tr>
+      <th>BALANCE FREIGHT PAYABLE</th>
+      <th>TBB AT BKG</th>
+    </tr>
+  </tbody>
+</table>
 
           <table className="printTable">
             <tbody>
