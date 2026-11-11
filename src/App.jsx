@@ -1292,22 +1292,22 @@ const sendBillsEmail = async () => {
             },
             body: JSON.stringify({
               to: recipient,
-              subject: emailSubject || `Invoice from ${firmInfo.name}`, // ✅ BAAD ME
+              subject: emailSubject || `Invoice from ${firmInfo.name}`, // 
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
                   <div style="background: #102a43; color: white; padding: 20px; text-align: center;">
-              <h2 style="margin: 0;">${firmInfo.name}</h2> // ✅ BAAD ME
+              <h2 style="margin: 0;">${firmInfo.name}</h2> // 
                     <p style="margin: 5px 0 0; font-size: 13px;">Transport Management System</p>
                   </div>
                   <div style="padding: 25px 20px;">
                     <p>${(emailBody || "").replace(/\n/g, "<br/>")}</p>
                   </div>
                   <div style="background: #f5f7fa; padding: 15px 20px; font-size: 12px; color: #666; border-top: 2px solid #102a43;">
-              <strong>${firmInfo.name}</strong><br/> // ✅ BAAD ME
-              ${firmInfo.address}<br/> // ✅ BAAD ME
-              Mobile: ${firmInfo.mobile}<br/> // ✅ BAAD ME
-              GSTIN: ${firmInfo.gst}<br/> // ✅ BAAD ME
-              Email: ${firmInfo.email} // ✅ BAAD ME
+              <strong>${firmInfo.name}</strong><br/> // 
+              ${firmInfo.address}<br/> // 
+              Mobile: ${firmInfo.mobile}<br/> // 
+              GSTIN: ${firmInfo.gst}<br/> // 
+              Email: ${firmInfo.email} // 
                   </div>
                 </div>
               `,
@@ -14579,16 +14579,16 @@ const renderPrintBilty = () => {
 
             <p>
               <strong>GSTIN/UIN:</strong>{" "}
-              {firmInfo.gst}{" "} // ✅ BAAD ME
+              {firmInfo.gst}{" "} // 
               | <strong>State:</strong>{" "}
-              {firmInfo.state}{" "} // ✅ BAAD ME
+              {firmInfo.state}{" "} // 
               | <strong>Code:</strong>{" "}
-              {firmInfo.code} // ✅ BAAD ME
+              {firmInfo.code} // 
             </p>
 
             <p>
               <strong>E-Mail:</strong>{" "}
-              {firmInfo.email} // ✅ BAAD ME
+              {firmInfo.email} // 
             </p>
           </div>
 
@@ -14813,7 +14813,7 @@ const renderPrintBilty = () => {
 
             <div>
               <strong>
-            FOR {firmInfo.name} // ✅ BAAD ME
+            FOR {firmInfo.name} //
               </strong>
               <div className="signatureSpace">
                 Authorized Signatory
@@ -14962,11 +14962,11 @@ ${trip.brokerName ? `🤝 Broker: ${trip.brokerName}\n` : ""}${trip.remarks ? `�
       <div className="printOverlay">
         <div className="printDocument tripPrintDocument">
           <div className="printHeader">
-            <h1>{firmInfo.name}</h1> // ✅ BAAD ME
-            <p>{firmInfo.address}</p> // ✅ BAAD ME
-            <p><strong>Mobile:</strong> {firmInfo.mobile}</p> // ✅ BAAD ME
-            <p><strong>GSTIN/UIN:</strong> {firmInfo.gst} | <strong>State:</strong> {firmInfo.state}</p> // ✅ BAAD ME
-            <p><strong>E-Mail:</strong> {firmInfo.email}</p> // ✅ BAAD ME
+            <h1>{firmInfo.name}</h1> // 
+            <p>{firmInfo.address}</p> // 
+            <p><strong>Mobile:</strong> {firmInfo.mobile}</p> // 
+            <p><strong>GSTIN/UIN:</strong> {firmInfo.gst} | <strong>State:</strong> {firmInfo.state}</p> // 
+            <p><strong>E-Mail:</strong> {firmInfo.email}</p> // 
           </div>
 
           <div className="printTitle">TRIP / DISPATCH DOCUMENT</div>
@@ -15155,7 +15155,7 @@ ${trip.brokerName ? `🤝 Broker: ${trip.brokerName}\n` : ""}${trip.remarks ? `�
               <div className="signatureSpace">Signature</div>
             </div>
             <div>
-        <strong>FOR {firmInfo.name}</strong> // ✅ BAAD ME
+        <strong>FOR {firmInfo.name}</strong> // 
               <div className="signatureSpace">Authorized Signatory</div>
             </div>
           </div>
@@ -15204,16 +15204,16 @@ const renderPrintPOD = () => {
 
         <div className="printHeader">
 
-                    <h1>{firmInfo.name}</h1> // ✅ BAAD ME
+                    <h1>{firmInfo.name}</h1> // 
 
-                   <p>{firmInfo.address}</p> // ✅ BAAD ME
+                   <p>{firmInfo.address}</p> // 
 
-                   <p><strong>Mobile:</strong> {firmInfo.mobile}</p> // ✅ BAAD ME
+                   <p><strong>Mobile:</strong> {firmInfo.mobile}</p> // 
 
 
-                  <p><strong>GSTIN/UIN:</strong> {firmInfo.gst}</p> // ✅ BAAD ME
+                  <p><strong>GSTIN/UIN:</strong> {firmInfo.gst}</p> // 
 
-                   <p><strong>E-Mail:</strong> {firmInfo.email}</p> // ✅ BAAD ME
+                   <p><strong>E-Mail:</strong> {firmInfo.email}</p> // 
 
 
         </div>
@@ -15881,15 +15881,15 @@ const renderPrintMoneyReceipt = () => {
 
         <div className="printHeader">
 
-                    <h1>{firmInfo.name}</h1> // ✅ BAAD ME
+                    <h1>{firmInfo.name}</h1> //
 
-                   <p>{firmInfo.address}</p> // ✅ BAAD ME
+                   <p>{firmInfo.address}</p> // 
 
-                   <p><strong>Mobile:</strong> {firmInfo.mobile}</p> // ✅ BAAD ME
+                   <p><strong>Mobile:</strong> {firmInfo.mobile}</p> // 
 
-                    <p><strong>GSTIN/UIN:</strong> {firmInfo.gst}</p> // ✅ BAAD ME
+                    <p><strong>GSTIN/UIN:</strong> {firmInfo.gst}</p> // 
 
-                   <p><strong>E-Mail:</strong> {firmInfo.email}</p> // ✅ BAAD ME
+                   <p><strong>E-Mail:</strong> {firmInfo.email}</p> // 
 
         </div>
 
@@ -16322,16 +16322,16 @@ const renderPrintMoneyReceipt = () => {
           
           {/* ===== SECTION 1: COMPANY HEADER ===== */}
           <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '10px' }}>
-            <h1 style={{ margin: '0', fontSize: '22px', fontWeight: '800' }}>{firmInfo.name}</h1> // ✅ BAAD ME
-            <p style={{ margin: '5px 0', fontSize: '10px' }}>{firmInfo.address}</p> // ✅ BAAD ME
+            <h1 style={{ margin: '0', fontSize: '22px', fontWeight: '800' }}>{firmInfo.name}</h1> // 
+            <p style={{ margin: '5px 0', fontSize: '10px' }}>{firmInfo.address}</p> // 
             <p style={{ margin: '3px 0', fontSize: '9px' }}>
-              {firmInfo.mobile} | GSTIN/UIN: {firmInfo.gst} // ✅ BAAD ME
+              {firmInfo.mobile} | GSTIN/UIN: {firmInfo.gst} //
             </p>
             <p style={{ margin: '3px 0', fontSize: '9px' }}>
-              State Name : {firmInfo.state}, Code : {firmInfo.code} // ✅ BAAD ME
+              State Name : {firmInfo.state}, Code : {firmInfo.code} // 
             </p>
             <p style={{ margin: '3px 0', fontSize: '9px' }}>
-              E-Mail : {firmInfo.email} // ✅ BAAD ME
+              E-Mail : {firmInfo.email} // 
             </p>
           </div>
 
@@ -16561,7 +16561,7 @@ const renderPrintMoneyReceipt = () => {
             borderTop: '2px solid #000',
             textAlign: 'right'
           }}>
-          <div style={{ fontWeight: 'bold', fontSize: '11px' }}>for {firmInfo.name}</div> // ✅ BAAD ME
+          <div style={{ fontWeight: 'bold', fontSize: '11px' }}>for {firmInfo.name}</div> // 
             <div style={{
               borderTop: '2px solid #000',
               paddingTop: '10px',
