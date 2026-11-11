@@ -1775,36 +1775,43 @@ const sendBillsEmail = async () => {
   );
   if (existingBilty) { alert(`❌ Bilty "${biltyNumber}" already exists!`); return; }
 
-  const finalData = {
+ const finalData = {
     bilty: biltyNumber,
     date: biltyForm.date || new Date().toISOString().slice(0, 10),
+    
+    //  CONSIGNOR DETAILS
+    consignorId: biltyForm.consignorId || "",
     consignor: biltyForm.consignor || "",
+    consignorAddress: biltyForm.consignorAddress || "",   // 
+    consignorGST: biltyForm.consignorGST || "",           
+    
+    //  CONSIGNEE DETAILS
+    consigneeId: biltyForm.consigneeId || "",
     consignee: biltyForm.consignee || "",
+    consigneeAddress: biltyForm.consigneeAddress || "",   
+    consigneeGST: biltyForm.consigneeGST || "",           
+    
     pickup: biltyForm.pickup || "",
     delivery: biltyForm.delivery || "",
     material: biltyForm.material || "",
-    actualWeight: String(biltyForm.actualWeight || 0),    // 🔥 ADD KARO
-  chargeWeight: String(biltyForm.chargeWeight || 0),    // 🔥 ADD KARO
-  freight: String(biltyForm.freight || 0),
-  advance: String(biltyForm.advance || 0),              // 🔥 ADD KARO
-  vehicle: biltyForm.vehicle || "",
-  vehicleType: biltyForm.vehicleType || "",             // 🔥 ADD KARO
-  driver: biltyForm.driver || "",                       // 🔥 ADD KARO
-  driverMobile: biltyForm.driverMobile || "",           // 🔥 ADD KARO
-  loadingDate: biltyForm.loadingDate || null,           // 🔥 ADD KARO
-  expectedDelivery: biltyForm.expectedDelivery || null, // 🔥 ADD KARO
+    actualWeight: String(biltyForm.actualWeight || 0),
+    chargeWeight: String(biltyForm.chargeWeight || 0),
+    freight: String(biltyForm.freight || 0),
+    advance: String(biltyForm.advance || 0),
+    vehicle: biltyForm.vehicle || "",
+    vehicleType: biltyForm.vehicleType || "",
+    driver: biltyForm.driver || "",
+    driverMobile: biltyForm.driverMobile || "",
+    loadingDate: biltyForm.loadingDate || null,
+    expectedDelivery: biltyForm.expectedDelivery || null,
     status: biltyForm.status || "Booked",
-    // 🔥 SINGLE E-WAY BILL (Backward compatibility)
     ewayBillNo: biltyForm.ewayBillNo || "",
     ewayBillExpiry: biltyForm.ewayBillExpiry || "",
-    // 🔥 MULTI E-WAY BILL
     ewayBills: biltyForm.ewayBills || [],
     materialValue: String(biltyForm.materialValue || 0),
     remarks: biltyForm.remarks || "",
-      firm_id: currentFirm?.id || null,  // 🔥 YE LINE ADD KARO
-
-  };
-
+    firm_id: currentFirm?.id || null,
+};
   console.log("💾 FINAL DATA SENDING:", finalData);
 
   try {
