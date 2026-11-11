@@ -14559,8 +14559,7 @@ const renderDailyTrackingPage = () => {
   // =========================================================
   // PROFESSIONAL BILTY PRINT
   // =========================================================
-const balance = Number(printBilty.freight || 0) - Number(printBilty.advance || 0);
-  const renderPrintBilty = () => {
+const renderPrintBilty = () => {
     const firmInfo = getFirmInfo(currentFirm, COMPANY);
     if (!printBilty) return null;
 
@@ -14569,6 +14568,7 @@ const balance = Number(printBilty.freight || 0) - Number(printBilty.advance || 0
       Number(printBilty.advance || 0);
 
     return (
+
       <div className="printOverlay">
         <div className="printDocument biltyPrintDocument">
           <div className="printHeader">
@@ -16259,38 +16259,46 @@ const renderPrintMoneyReceipt = () => {
   // =========================================================
   // PROFESSIONAL BILL PRINT - TALLY STYLE
   // =========================================================
-    const renderPrintBill = () => {
-    if (!printBill) return null;
-      const firmInfo = getFirmInfo(currentFirm, COMPANY); // 🔥 YE LINE ADD KARO
+       const renderPrintBill = () => {
+      // 🔥 NULL SAFETY: agar printBill null/invalid hai to crash na ho
+      if (!printBill || typeof printBill !== "object") return null;
 
+      const firmInfo = getFirmInfo(currentFirm, COMPANY);
 
-    // Calculate totals
-    const totalAmount = printBill.items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-    const taxableValue = totalAmount;
-    const igstRate = printBill.igstRate || 5;
-    const igstAmount = (taxableValue * igstRate) / 100;
-    const grandTotal = taxableValue + igstAmount;
+      // 🔥 NULL SAFETY: agar items array nahi hai to empty array
+      const safeItems = Array.isArray(printBill?.items) ? printBill.items : [];
 
-    // Format date
-    const billDate = printBill.date || new Date().toISOString().slice(0, 10);
+      // Calculate totals (safeItems use karo, printBill.items nahi)
+      const totalAmount = safeItems.reduce(
+        (sum, item) => sum + (parseFloat(item?.amount) || 0),
+        0
+      );
+      const taxableValue = totalAmount;
+      const igstRate = Number(printBill?.igstRate) || 5;
+      const igstAmount = (taxableValue * igstRate) / 100;
+      const grandTotal = taxableValue + igstAmount;
 
-    // Number to words function
-    const numberToWords = (num) => {
-      if (num === 0) return 'Zero';
-      
-      const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
-        'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-      const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-      
-      const numToWords = (n) => {
-        if (n < 20) return ones[n];
-        if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
-        if (n < 1000) return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + numToWords(n % 100) : '');
-        if (n < 100000) return numToWords(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + numToWords(n % 1000) : '');
-        if (n < 10000000) return numToWords(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + numToWords(n % 100000) : '');
-        return numToWords(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + numToWords(n % 10000000) : '');
-      };
-      
+      // Format date
+      const billDate =
+        printBill?.date || new Date().toISOString().slice(0, 10);
+
+      // Number to words function
+      const numberToWords = (num) => {
+        // 🔥 NaN safety
+        if (!num || isNaN(num) || num === 0) return "Zero";
+
+        const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+          'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+        const numToWords = (n) => {
+          if (n < 20) return ones[n];
+          if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+          if (n < 1000) return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + numToWords(n % 100) : '');
+          if (n < 100000) return numToWords(Math.floor(n / 1000)) + ' Thousand' + (n % 1000 ? ' ' + numToWords(n % 1000) : '');
+          if (n < 10000000) return numToWords(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + numToWords(n % 100000) : '');
+          return numToWords(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + numToWords(n % 10000000) : '');
+        };   
       const rupees = Math.floor(num);
       const paise = Math.round((num - rupees) * 100);
       
@@ -16422,30 +16430,30 @@ const renderPrintMoneyReceipt = () => {
     </tr>
   </thead>
   <tbody>
-    {printBill.items && printBill.items.length > 0 ? (
-      printBill.items.map((item, index) => (
-        <tr key={item.id || index}>
-          <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{index + 1}</td>
-          <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>
-            <strong>{item.description || "-"}</strong>
-            {item.subDescription && (
-              <div style={{ fontSize: '7px', color: '#555' }}>{item.subDescription}</div>
-            )}
-          </td>
-          <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{item.date ? formatDate(item.date) : formatDate(billDate)}</td>
-          <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{item.cnNo || printBill.biltyNo || "-"}</td>
-          <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{item.lorryNo || printBill.vehicleNo || "-"}</td>
-          <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{item.actualWeight || item.quantity || '-'}</td>
-          <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{item.chargeWeight || item.quantity || '-'}</td>
-          <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right' }}>{money(item.rate || 0)}</td>
-          <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right', fontWeight: 'bold' }}>{money(item.amount || 0)}</td>
-        </tr>
-      ))
-    ) : (
-      <tr>
-        <td colSpan="9" style={{ border: '1px solid #000', padding: '20px', textAlign: 'center' }}>No items in this bill</td>
-      </tr>
-    )}
+    {safeItems.length > 0 ? (
+  safeItems.map((item, index) => (
+    <tr key={item?.id || index}>
+      <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{index + 1}</td>
+      <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>
+        <strong>{item?.description || "-"}</strong>
+        {item?.subDescription && (
+          <div style={{ fontSize: '7px', color: '#555' }}>{item.subDescription}</div>
+        )}
+      </td>
+      <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{item?.date ? formatDate(item.date) : formatDate(billDate)}</td>
+      <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{item?.cnNo || printBill?.biltyNo || "-"}</td>
+      <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{item?.lorryNo || printBill?.vehicleNo || "-"}</td>
+      <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{item?.actualWeight || item?.quantity || '-'}</td>
+      <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{item?.chargeWeight || item?.quantity || '-'}</td>
+      <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right' }}>{money(item?.rate || 0)}</td>
+      <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right', fontWeight: 'bold' }}>{money(item?.amount || 0)}</td>
+    </tr>
+  ))
+) : (
+  <tr>
+    <td colSpan="9" style={{ border: '1px solid #000', padding: '20px', textAlign: 'center' }}>No items in this bill</td>
+  </tr>
+)}
   </tbody>
   <tfoot>
     <tr style={{ background: '#f0f0f0', fontWeight: 'bold' }}>
@@ -16489,20 +16497,20 @@ const renderPrintMoneyReceipt = () => {
     </tr>
   </thead>
   <tbody>
-    {printBill.items && printBill.items.length > 0 ? (
-      printBill.items.map((item, index) => (
-        <tr key={`tax-${index}`}>
-          <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{item.hsn || "996519"}</td>
-          <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right' }}>{money(item.amount || 0)}</td>
-          <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right' }}>{money((item.amount || 0) * ((printBill.igstRate || 5) / 100))}</td>
-          <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right' }}>{money((item.amount || 0) * ((printBill.igstRate || 5) / 100))}</td>
-        </tr>
-      ))
-    ) : (
-      <tr>
-        <td colSpan="4" style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>No items</td>
-      </tr>
-    )}
+    {safeItems.length > 0 ? (
+  safeItems.map((item, index) => (
+    <tr key={`tax-${index}`}>
+      <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{item?.hsn || "996519"}</td>
+      <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right' }}>{money(item?.amount || 0)}</td>
+      <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right' }}>{money((item?.amount || 0) * (igstRate / 100))}</td>
+      <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right' }}>{money((item?.amount || 0) * (igstRate / 100))}</td>
+    </tr>
+  ))
+) : (
+  <tr>
+    <td colSpan="4" style={{ border: '1px solid #000', padding: '6px', textAlign: 'center' }}>No items</td>
+  </tr>
+)}
   </tbody>
   <tfoot>
     <tr style={{ background: '#f0f0f0', fontWeight: 'bold' }}>
