@@ -652,18 +652,50 @@ const loadFirms = async () => {
     
     if (error) throw error;
     
-    setFirms(data || []);
+    const allFirms = data || [];
     
-    // LocalStorage se last selected firm lo
-    const savedFirmId = localStorage.getItem('selected_firm_id');
-    const savedFirm = data?.find(f => String(f.id) === String(savedFirmId));
+    // 🔥 STAFF ke liye SIRF PRIMARY firm
+    // (userRole abhi default STAFF hai, login ke baad check hoga)
+    const isStaff = userRole !== 'ADMIN';
     
-    // Agar saved firm mil gaya to wo select karo, warna pehla firm
-    if (savedFirm) {
-      setCurrentFirm(savedFirm);
-    } else if (data && data.length > 0) {
-      setCurrentFirm(data[0]);
-      localStorage.setItem('selected_firm_id', data[0].id);
+    let firmsToShow = allFirms;
+    
+    if (isStaff) {
+      // Sirf primary firm
+      const primaryFirm = allFirms.find(f => f.is_primary === true);
+      
+      if (primaryFirm) {
+        firmsToShow = [primaryFirm];
+        console.log("🔒 STAFF mode: Only primary firm loaded:", primaryFirm.firm_name);
+      } else {
+        // Agar koi primary mark nahi hai to pehli firm
+        firmsToShow = allFirms.length > 0 ? [allFirms[0]] : [];
+        console.warn("⚠️ No primary firm marked, using first firm");
+      }
+    } else {
+      console.log("👑 ADMIN mode: All firms loaded:", allFirms.length);
+    }
+    
+    setFirms(firmsToShow);
+    
+    // Current firm set karo
+    if (isStaff) {
+      // Staff ke liye hamesha primary firm
+      if (firmsToShow.length > 0) {
+        setCurrentFirm(firmsToShow[0]);
+        localStorage.setItem('selected_firm_id', firmsToShow[0].id);
+      }
+    } else {
+      // Admin ke liye saved firm ya pehli firm
+      const savedFirmId = localStorage.getItem('selected_firm_id');
+      const savedFirm = firmsToShow.find(f => String(f.id) === String(savedFirmId));
+      
+      if (savedFirm) {
+        setCurrentFirm(savedFirm);
+      } else if (firmsToShow.length > 0) {
+        setCurrentFirm(firmsToShow[0]);
+        localStorage.setItem('selected_firm_id', firmsToShow[0].id);
+      }
     }
   } catch (e) {
     console.error("Firm load error:", e);
@@ -672,7 +704,6 @@ const loadFirms = async () => {
     setFirmLoading(false);
   }
 };
-
 // =========================================================
 // 🔥 LOAD ALL DATA — FIRM WISE FILTER 🔥
 // =========================================================
@@ -841,20 +872,29 @@ useEffect(() => {
     });
     if (error) throw error;
     
-    // Role fetch karo, agar nahi mila toh default STAFF
+    // Role fetch karo
+    let role = 'STAFF';
     try {
       const { data: userProfile } = await supabase
         .from('user_roles')
         .select('role')
         .eq('id', data.user.id)
         .single();
-      setUserRole(userProfile?.role || 'STAFF');
+      role = userProfile?.role || 'STAFF';
+      setUserRole(role);
+      console.log("✅ Role set:", role);
     } catch (roleError) {
       console.log("⚠️ No role found, setting default STAFF");
       setUserRole('STAFF');
     }
     
-    alert("✅ Login successful!");
+    // 🔥 ROLE SET HONE KE BAAD firms dobara load karo
+    // Admin ko saari firms dikhengi, staff ko sirf primary
+    setTimeout(() => {
+      loadFirms();
+    }, 100);
+    
+    alert(`✅ Login successful!\n\n👤 Role: ${role}`);
   } catch (error) {
     alert("❌ Login failed: " + error.message);
   }
@@ -16737,40 +16777,41 @@ if (!firmLoading && firms.length === 0) {
   </div>
 
   <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-    {/* 🔥🔥🔥 FIRM SELECTOR 🔥🔥🔥 */}
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-      <label style={{ color: 'white', fontWeight: 'bold', fontSize: '13px' }}>
-        🏢 Firm:
-      </label>
-      <select
-        value={currentFirm?.id || ""}
-        onChange={(e) => {
-          const selected = firms.find(f => String(f.id) === String(e.target.value));
-          if (selected) {
-            setCurrentFirm(selected);
-            localStorage.setItem('selected_firm_id', selected.id);
-          }
-        }}
-        style={{
-          padding: '8px 15px',
-          borderRadius: '6px',
-          border: '2px solid white',
-          background: 'white',
-          color: '#102a43',
-          fontWeight: 'bold',
-          fontSize: '13px',
-          cursor: 'pointer',
-          minWidth: '200px'
-        }}
-      >
-        {firms.map((firm) => (
-          <option key={firm.id} value={firm.id}>
-            {firm.firm_name}
-          </option>
-        ))}
-      </select>
-    </div>
-
+    {/* 🔥🔥🔥 FIRM SELECTOR — SIRF ADMIN KE LIYE 🔥🔥🔥 */}
+{userRole === "ADMIN" && (
+  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+    <label style={{ color: 'white', fontWeight: 'bold', fontSize: '13px' }}>
+      🏢 Firm:
+    </label>
+    <select
+      value={currentFirm?.id || ""}
+      onChange={(e) => {
+        const selected = firms.find(f => String(f.id) === String(e.target.value));
+        if (selected) {
+          setCurrentFirm(selected);
+          localStorage.setItem('selected_firm_id', selected.id);
+        }
+      }}
+      style={{
+        padding: '8px 15px',
+        borderRadius: '6px',
+        border: '2px solid white',
+        background: 'white',
+        color: '#102a43',
+        fontWeight: 'bold',
+        fontSize: '13px',
+        cursor: 'pointer',
+        minWidth: '200px'
+      }}
+    >
+      {firms.map((firm) => (
+        <option key={firm.id} value={firm.id}>
+          {firm.firm_name}
+        </option>
+      ))}
+    </select>
+  </div>
+)}
     <div className="headerRight">
       <strong>
         GSTIN: {currentFirm?.gst || COMPANY.gst}
