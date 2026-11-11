@@ -97,19 +97,12 @@ const emptyCustomer = {
 };
 
 const createEmptyAccount = () => ({
-
   date: new Date().toISOString().slice(0, 10),
-
   type: "RECEIPT",
-
   partyName: "",
-
   amount: "",
-
   paymentMode: "BANK",
-
   referenceNo: "",
-
   billNo: "",
   billIds: [],
   billAllocations: {},
@@ -117,16 +110,13 @@ const createEmptyAccount = () => ({
   billDeductions: {},
   billNetAmounts: {},
   allocationType: "ON ACCOUNT",
-
   tdsType: "NO TDS",
   tdsName: "",
   tanNumber: "",
   tdsAmount: "",
-
   category: "OTHER",
-
   remarks: "",
-
+  showBillSelector: false,  
 });
 
 const emptyVehicle = {
