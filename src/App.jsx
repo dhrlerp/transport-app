@@ -5997,7 +5997,6 @@ Thank You`;
     lhbCash: String(lhbCash || 0),
     lhbBank: String(lhbBank || 0),
     lhbOther: String(lhbOther || 0),
-    challanBiltyDeduction: String(lhbOther || 0),
     lhbRemarks: lhbRemarks || "",
     lhbPaid: String(totalPayment),
     lhbPending: String(lhbCurrentTotal() - totalPayment),
@@ -6006,12 +6005,28 @@ Thank You`;
     balanceUtr: utrModal?.utr?.trim() || "",
     balanceUtrDate: utrModal?.date || new Date().toISOString().slice(0, 10),
   };
-      try {
+           try {
         const tripIdsToUpdate = lhbTrip._allTripIds || [lhbTrip.id];
-        for (const tId of tripIdsToUpdate) {
+        
+        // 🔥 Sirf FIRST row me pura amount, baaki me 0
+        for (let i = 0; i < tripIdsToUpdate.length; i++) {
+          const tId = tripIdsToUpdate[i];
+          const isFirst = i === 0;
+          
+          const rowUpdateData = {
+            ...updateData,
+            lhbHalting: isFirst ? String(lhbHalting || 0) : "0",
+            lhbDamage: isFirst ? String(lhbDamage || 0) : "0",
+            lhbCash: isFirst ? String(lhbCash || 0) : "0",
+            lhbBank: isFirst ? String(lhbBank || 0) : "0",
+            lhbOther: isFirst ? String(lhbOther || 0) : "0",
+            lhbPaid: isFirst ? String(totalPayment) : "0",
+            lhbPending: isFirst ? String(lhbCurrentTotal() - totalPayment) : "0",
+          };
+          
           const { error } = await supabase
             .from('trips')
-            .update(updateData)
+            .update(rowUpdateData)
             .eq('id', tId);
           if (error) throw error;
         }
@@ -10756,7 +10771,7 @@ const renderBillSubmissionPage = () => {
           _totalDamageDeduction: Number(item.damageDeduction || 0),
           _totalOtherAddition: Number(item.otherAddition || 0),
           _totalOtherDeduction: Number(item.otherDeduction || 0),
-          _totalChallanDeduction: Number(item.challanBiltyDeduction || item.lhbOther || 0),
+_totalChallanDeduction: Number(item.lhbOther || 0),
         });
       } else {
         const existing = groupedTripsMap.get(key);
@@ -10773,7 +10788,7 @@ const renderBillSubmissionPage = () => {
         existing._totalDamageDeduction += Number(item.damageDeduction || 0);
         existing._totalOtherAddition += Number(item.otherAddition || 0);
         existing._totalOtherDeduction += Number(item.otherDeduction || 0);
-        existing._totalChallanDeduction += Number(item.challanBiltyDeduction || item.lhbOther || 0);
+existing._totalChallanDeduction += Number(item.lhbOther || 0);
       }
     });
     
@@ -12343,7 +12358,7 @@ const pendingBilties = bilties.filter((item) => {
               const correctedLorryHire = lorryHire + haltingNet + otherAddition;
               
               // 🔥 Challan & Bilty Deduction (LHB entry se)
-const challanBiltyDeduction = trip ? Number(trip.challanBiltyDeduction || trip.lhbOther || 0) : 0;
+const challanBiltyDeduction = trip ? Number(trip.lhbOther || 0) : 0;
 
               // Balance = Corrected Lorry Hire - Advance
               const balance = correctedLorryHire - advance;
@@ -12701,7 +12716,7 @@ customerData.totalChallanDeduction += challanBiltyDeduction;
         const bookingFreight = Number(item.bookingFreight || 0);
         const lorryHire = Number(item.lorryFreight || 0);
         const advance = Number(item.advance || 0);
-        const challanBiltyDeduction = Number(item.challanBiltyDeduction || item.lhbOther || 0);
+const challanBiltyDeduction = Number(item.lhbOther || 0);
         
         const haltingAddition = Number(item.haltingAddition || 0);
         const haltingDeduction = Number(item.haltingDeduction || 0);
