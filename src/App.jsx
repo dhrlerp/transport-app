@@ -16374,21 +16374,24 @@ const renderPrintMoneyReceipt = () => {
           margin: '0 auto'
         }}>
           
-          {/* ===== SECTION 1: COMPANY HEADER ===== */}
+                   {/* ===== SECTION 1: COMPANY HEADER ===== */}
           <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '10px' }}>
-            <h1 style={{ margin: '0', fontSize: '22px', fontWeight: '800' }}>{firmInfo.name}</h1> // 
-            <p style={{ margin: '5px 0', fontSize: '10px' }}>{firmInfo.address}</p> // 
-            <p style={{ margin: '3px 0', fontSize: '9px' }}>
-              {firmInfo.mobile} | GSTIN/UIN: {firmInfo.gst} //
+            <h1 style={{ margin: '0 0 5px 0', fontSize: '24px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              {firmInfo.name}
+            </h1>
+            <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: '500' }}>
+              {firmInfo.address}
             </p>
-            <p style={{ margin: '3px 0', fontSize: '9px' }}>
-              State Name : {firmInfo.state}, Code : {firmInfo.code} // 
+            <p style={{ margin: '0 0 2px 0', fontSize: '10px', fontWeight: 'bold' }}>
+              Mobile: {firmInfo.mobile} | GSTIN/UIN: {firmInfo.gst}
             </p>
-            <p style={{ margin: '3px 0', fontSize: '9px' }}>
-              E-Mail : {firmInfo.email} // 
+            <p style={{ margin: '0 0 2px 0', fontSize: '10px' }}>
+              State Name : {firmInfo.state}, Code : {firmInfo.code}
+            </p>
+            <p style={{ margin: '0', fontSize: '10px' }}>
+              E-Mail : {firmInfo.email}
             </p>
           </div>
-
              {/* ===== INVOICE NO. & DATE ===== */}
           <div style={{
             display: 'grid',
