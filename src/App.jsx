@@ -1024,7 +1024,8 @@ useEffect(() => {
     total: String(billForm.total || 0),
     igstRate: String(billForm.igstRate || 5),
     remarks: billForm.remarks || "",
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    firm_id: currentFirm.id    
   };
 
   console.log("💾 FINAL DATA SENDING:", finalData);
@@ -15764,8 +15765,9 @@ const renderUtrModal = () => {
     total: String(pendingBillData.pending || 0),
     igstRate: "5",
     remarks: `Generated from pending bilty ${pendingBillData.biltyNo || ""}`,
-    createdAt: new Date().toISOString()
-  };
+    createdAt: new Date().toISOString(),
+  firm_id: currentFirm?.id || null    
+};
 
   try {
     const { error } = await supabase.from('bills').insert([newBill]);
