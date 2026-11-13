@@ -16367,7 +16367,7 @@ const renderPrintMoneyReceipt = () => {
       <div className="printOverlay">
         <div className="printDocument" style={{
           border: '2px solid #000',
-          padding: '8mm',
+          padding: '5mm',
           background: 'white',
           fontFamily: 'Arial, Helvetica, sans-serif',
           maxWidth: '210mm',
@@ -16620,12 +16620,14 @@ const renderPrintMoneyReceipt = () => {
 
         {/* ===== SECTION 13: DIGITAL SIGNATURE ===== */}
 <div style={{
-  marginTop: '20px',
-  paddingTop: '15px',
+  marginTop: '12px',
+  paddingTop: '10px',
   borderTop: '2px solid #000',
   display: 'flex',
   justifyContent: 'space-between',
-  alignItems: 'flex-end'
+  alignItems: 'flex-end',
+  pageBreakInside: 'avoid',
+  breakInside: 'avoid'
 }}>
   {/* Left - Computer generated note */}
   <div style={{
@@ -16641,7 +16643,7 @@ const renderPrintMoneyReceipt = () => {
   {/* Right - Digital Signature */}
   <div style={{
     textAlign: 'center',
-    minWidth: '220px'
+    minWidth: '180px'
   }}>
     {/* 🔥 Signature Image (agar base64 available hai) */}
     {typeof SIGNATURE_IMAGE_BASE64 !== 'undefined' && SIGNATURE_IMAGE_BASE64 && (

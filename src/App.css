@@ -3081,3 +3081,45 @@ footer {
     display: none !important;
   }
 }
+@media print {
+  @page {
+    size: A4;
+    margin: 8mm 6mm;   /* ✅ Chhota margin — signature ko jagah milegi */
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .printDocument,
+  .printDocument * {
+    visibility: visible;
+  }
+
+  .printDocument {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: 100%;
+    padding: 0 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+
+  .printButtons {
+    display: none !important;
+  }
+
+  /* ✅ Signature section ko page break se bachao */
+  .signatures {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* ✅ Tables ko todne se bachao */
+  table {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
