@@ -3064,3 +3064,20 @@ footer {
     print-color-adjust: exact !important;
   }
 }
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .printDocument, .printDocument * {
+    visibility: visible;
+  }
+  .printDocument {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .printButtons {
+    display: none !important;
+  }
+}

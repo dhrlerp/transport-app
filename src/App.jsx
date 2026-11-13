@@ -16715,19 +16715,15 @@ const renderPrintMoneyReceipt = () => {
          <div className="printButtons" style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '15px' }}>
   <button className="greenBtn" onClick={() => window.print()}>🖨️ PRINT BILL</button>
   <button 
-    className="blueBtn" 
-    onClick={() => {
-      const pdfBlob = generateBillPDF(printBill);
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${printBill.billNo || 'bill'}.pdf`;
-      link.click();
-      URL.revokeObjectURL(url);
-    }}
-  >
-    📥 DOWNLOAD PDF
-  </button>
+  className="blueBtn" 
+  onClick={() => {
+    // Professional PDF: Browser ke print dialog se "Save as PDF"
+    // Same format jo screen par dikh raha hai
+    window.print();
+  }}
+>
+  📥 DOWNLOAD PDF
+</button>
   <button className="grayBtn" onClick={() => setPrintBill(null)}>✕ CLOSE</button>
 </div>
         </div>
