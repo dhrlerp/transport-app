@@ -16443,13 +16443,26 @@ const renderPrintMoneyReceipt = () => {
               {printBill.partyName || "-"}
             </div>
             <div style={{
-              fontSize: '10px',
-              marginTop: '3px',
-              lineHeight: '1.5',
-              textAlign: 'left'
-            }}>
-              {printBill.partyAddress || "-"}
-            </div>
+  fontSize: '10px',
+  marginTop: '3px',
+  lineHeight: '1.5',
+  textAlign: 'left'
+}}>
+  {(() => {
+    let addr = String(printBill.partyAddress || "").trim();
+    
+    // 🔥 Address mein se "GSTIN/UIN : ..." ya "GSTIN: ..." hata do
+    addr = addr.replace(/GSTIN\s*\/?\s*UIN\s*[:\-]?\s*[A-Z0-9]{15}/gi, "");
+    addr = addr.replace(/GSTIN\s*[:\-]?\s*[A-Z0-9]{15}/gi, "");
+    addr = addr.replace(/GSTIN\s*\/?\s*UIN\s*[:\-]?/gi, "");
+    addr = addr.replace(/GSTIN\s*[:\-]?/gi, "");
+    
+    // Extra spaces aur newlines clean karo
+    addr = addr.replace(/\s+/g, " ").trim();
+    
+    return addr || "-";
+  })()}
+</div>
             <div style={{
               fontSize: '10px',
               marginTop: '4px',
