@@ -16418,63 +16418,62 @@ const renderPrintMoneyReceipt = () => {
             </div>
           </div>
                         {/* ===== SECTION 2: BUYER (BILL TO) - LEFT SIDE ===== */}
-          <div style={{
-            border: '1px solid #000',
-            marginTop: '10px',
-            padding: '12px 15px',
-            textAlign: 'left'
-          }}>
-            <div style={{
-              fontWeight: 'bold',
-              fontSize: '11px',
-              borderBottom: '1px solid #000',
-              paddingBottom: '5px',
-              marginBottom: '8px',
-              textAlign: 'left'
-            }}>
-              Buyer (Bill to)
-            </div>
-            <div style={{
-              fontWeight: 'bold',
-              fontSize: '11px',
-              marginTop: '5px',
-              textAlign: 'left'
-            }}>
-              {printBill.partyName || "-"}
-            </div>
-            <div style={{
-  fontSize: '10px',
-  marginTop: '3px',
-  lineHeight: '1.5',
+<div style={{
+  border: '1px solid #000',
+  marginTop: '10px',
+  padding: '12px 15px',
   textAlign: 'left'
 }}>
-  {(() => {
-    let addr = String(printBill.partyAddress || "").trim();
-    
-    // 🔥 Address mein se "GSTIN/UIN : ..." ya "GSTIN: ..." hata do
-    addr = addr.replace(/GSTIN\s*\/?\s*UIN\s*[:\-]?\s*[A-Z0-9]{15}/gi, "");
-    addr = addr.replace(/GSTIN\s*[:\-]?\s*[A-Z0-9]{15}/gi, "");
-    addr = addr.replace(/GSTIN\s*\/?\s*UIN\s*[:\-]?/gi, "");
-    addr = addr.replace(/GSTIN\s*[:\-]?/gi, "");
-    
-    // Extra spaces aur newlines clean karo
-    addr = addr.replace(/\s+/g, " ").trim();
-    
-    return addr || "-";
-  })()}
+  <div style={{
+    fontWeight: 'bold',
+    fontSize: '11px',
+    borderBottom: '1px solid #000',
+    paddingBottom: '5px',
+    marginBottom: '8px',
+    textAlign: 'left'
+  }}>
+    Buyer (Bill to)
+  </div>
+  <div style={{
+    fontWeight: 'bold',
+    fontSize: '11px',
+    marginTop: '5px',
+    textAlign: 'left'
+  }}>
+    {printBill.partyName || "-"}
+  </div>
+  <div style={{
+    fontSize: '10px',
+    marginTop: '3px',
+    lineHeight: '1.5',
+    textAlign: 'left'
+  }}>
+    {(() => {
+      let addr = String(printBill.partyAddress || "").trim();
+      
+      // 🔥 Address mein se "GSTIN/UIN : ..." ya "GSTIN: ..." hata do
+      addr = addr.replace(/GSTIN\s*\/?\s*UIN\s*[:\-]?\s*[A-Z0-9]{15}/gi, "");
+      addr = addr.replace(/GSTIN\s*[:\-]?\s*[A-Z0-9]{15}/gi, "");
+      addr = addr.replace(/GSTIN\s*\/?\s*UIN\s*[:\-]?/gi, "");
+      addr = addr.replace(/GSTIN\s*[:\-]?/gi, "");
+      
+      // Extra spaces aur newlines clean karo
+      addr = addr.replace(/\s+/g, " ").trim();
+      
+      return addr || "-";
+    })()}
+  </div>
+  {/* ✅ GSTIN — sirf ek baar */}
+  <div style={{
+    fontSize: '10px',
+    marginTop: '4px',
+    textAlign: 'left'
+  }}>
+    <span style={{ fontWeight: 'bold' }}>GSTIN/UIN :</span> {printBill.partyGST || "-"}
+  </div>
 </div>
-            <div style={{
-              fontSize: '10px',
-              marginTop: '4px',
-              textAlign: 'left'
-            }}>
-              <span style={{ fontWeight: 'bold' }}>GSTIN/UIN :</span> {printBill.partyGST || "-"}
-            </div>
-                       <div style={{ fontSize: '10px', marginTop: '4px', textAlign: 'left' }}>
-  <span style={{ fontWeight: 'bold' }}>GSTIN/UIN :</span> {printBill.partyGST || "-"}
-</div>
-          </div>
-          {/* ===== SECTION 7: MAIN TABLE ===== */}
+{/* ===== SECTION 7: MAIN TABLE ===== */}
+
           <table style={{
   width: '100%',
   borderCollapse: 'collapse',
