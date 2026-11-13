@@ -16457,10 +16457,9 @@ const renderPrintMoneyReceipt = () => {
             }}>
               <span style={{ fontWeight: 'bold' }}>GSTIN/UIN :</span> {printBill.partyGST || "-"}
             </div>
-                       <div style={{ fontSize: '10px', marginTop: '2px', textAlign: 'left' }}>
-              <span style={{ fontWeight: 'bold' }}>State Name :</span>{" "}
-              {customers.find(c => String(c.name || "").trim().toUpperCase() === String(printBill.partyName || "").trim().toUpperCase())?.state || "-"}
-            </div>
+                       <div style={{ fontSize: '10px', marginTop: '4px', textAlign: 'left' }}>
+  <span style={{ fontWeight: 'bold' }}>GSTIN/UIN :</span> {printBill.partyGST || "-"}
+</div>
           </div>
           {/* ===== SECTION 7: MAIN TABLE ===== */}
           <table style={{
