@@ -16608,36 +16608,118 @@ const renderPrintMoneyReceipt = () => {
           </div>
         
 
-          {/* ===== SECTION 13: SIGNATURE ===== */}
-          <div style={{
-            marginTop: '30px',
-            paddingTop: '15px',
-            borderTop: '2px solid #000',
-            textAlign: 'right'
-          }}>
-          <div style={{ fontWeight: 'bold', fontSize: '11px' }}>for {firmInfo.name}</div> // 
-            <div style={{
-              borderTop: '2px solid #000',
-              paddingTop: '10px',
-              marginTop: '30px',
-              minHeight: '45px',
-              width: '200px',
-              marginLeft: 'auto'
-            }}>
-              (Authorized Signatory)
-            </div>
-          </div>
+        {/* ===== SECTION 13: DIGITAL SIGNATURE ===== */}
+<div style={{
+  marginTop: '20px',
+  paddingTop: '15px',
+  borderTop: '2px solid #000',
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'flex-end'
+}}>
+  {/* Left - Computer generated note */}
+  <div style={{
+    fontSize: '8px',
+    color: '#666',
+    maxWidth: '300px',
+    textAlign: 'left',
+    fontStyle: 'italic'
+  }}>
+    This is a computer generated invoice with digital signature.
+  </div>
 
+  {/* Right - Digital Signature */}
+  <div style={{
+    textAlign: 'center',
+    minWidth: '220px'
+  }}>
+    {/* 🔥 Signature Image (agar base64 available hai) */}
+    {typeof SIGNATURE_IMAGE_BASE64 !== 'undefined' && SIGNATURE_IMAGE_BASE64 && (
+      <img 
+        src={SIGNATURE_IMAGE_BASE64} 
+        alt="Signature"
+        style={{
+          maxWidth: '180px',
+          maxHeight: '55px',
+          objectFit: 'contain',
+          marginBottom: '4px',
+          display: 'block',
+          margin: '0 auto 4px'
+        }}
+      />
+    )}
+    
+    {/* 🔥 Signature Text */}
+    <div style={{
+      fontFamily: "'Brush Script MT', 'Segoe Script', 'Lucida Handwriting', cursive",
+      fontSize: '22px',
+      fontWeight: 'bold',
+      color: '#003399',
+      fontStyle: 'italic',
+      letterSpacing: '1px',
+      marginBottom: '2px',
+      lineHeight: '1.2'
+    }}>
+      Gautam Sharma
+    </div>
+    
+    {/* Signature Line */}
+    <div style={{
+      borderTop: '2px solid #003399',
+      paddingTop: '6px',
+      marginTop: '4px',
+      fontSize: '10px',
+      fontWeight: 'bold',
+      color: '#000'
+    }}>
+      Authorized Signatory
+    </div>
+    
+    {/* Digitally Signed Badge */}
+    <div style={{
+      fontSize: '9px',
+      color: '#008000',
+      marginTop: '4px',
+      fontWeight: 'bold'
+    }}>
+      ✓ Digitally Signed
+    </div>
+    
+    {/* Company Name */}
+    <div style={{
+      fontSize: '9px',
+      fontWeight: 'bold',
+      marginTop: '2px',
+      color: '#102a43'
+    }}>
+      for {firmInfo.name}
+    </div>
+  </div>
+</div>
           {/* ===== SECTION 14: COMPUTER GENERATED ===== */}
           <p style={{ textAlign: 'center', fontSize: '8px', color: '#666', marginTop: '10px' }}>
             This is a computer generated invoice.
           </p>
 
           {/* ===== BUTTONS ===== */}
-          <div className="printButtons" style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '15px' }}>
-            <button className="greenBtn" onClick={() => window.print()}>🖨️ PRINT BILL</button>
-            <button className="grayBtn" onClick={() => setPrintBill(null)}>✕ CLOSE</button>
-          </div>
+         <div className="printButtons" style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '15px' }}>
+  <button className="greenBtn" onClick={() => window.print()}>🖨️ PRINT BILL</button>
+  <button 
+    className="blueBtn" 
+    onClick={() => {
+      const pdfBlob = generateBillPDF(printBill);
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${printBill.billNo || 'bill'}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }}
+  >
+    📥 DOWNLOAD PDF
+  </button>
+  <button className="grayBtn" onClick={() => setPrintBill(null)}>✕ CLOSE</button>
+</div>
         </div>
       </div>
     );
