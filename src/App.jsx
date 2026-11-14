@@ -7697,67 +7697,33 @@ Thank You`;
                   );
                 }
 
-                const selectedParty = String(accountForm.partyName).trim().toUpperCase();
+                              const selectedParty = String(accountForm.partyName).trim().toUpperCase();
                 let pendingItems = [];
 
-                // 1. 🔥 CHECK BILTIES
-                bilties.forEach((item) => {
-                  const consignor = String(item.consignor || "").trim().toUpperCase();
-                  const consignee = String(item.consignee || "").trim().toUpperCase();
+                // 🔥 SIRF BILLS CHECK KARO (Jinka bill generate hua hai)
+                bills.forEach((bill) => {
+                  const billParty = String(bill.partyName || "").trim().toUpperCase();
                   
-                  if (selectedParty === consignor || selectedParty === consignee) {
-                    const billAmount = Number(item.freight || 0);
+                  if (selectedParty === billParty) {
+                    const billAmount = Number(bill.subtotal || bill.total || 0);
                     
                     const adjusted = accounts.reduce((sum, account) => {
                       if (account.id === editingAccount?.id) return sum;
-                      const allocation = account.billAllocations?.[item.id];
-                      const tds = account.billTds?.[item.id];
-                      const deduction = account.billDeductions?.[item.id];
+                      const allocation = account.billAllocations?.[bill.id];
+                      const tds = account.billTds?.[bill.id];
+                      const deduction = account.billDeductions?.[bill.id];
                       return sum + Number(allocation || 0) + Number(tds || 0) + Number(deduction || 0);
                     }, 0);
 
                     const pending = billAmount - adjusted;
                     if (pending > 0.01) {
                       pendingItems.push({
-                        ...item,
+                        ...bill,
                         billAmount,
                         alreadyAdjusted: adjusted,
                         pending,
-                        displayNo: item.bilty || "BILTY",
+                        displayNo: bill.billNo || "BILL",
                       });
-                    }
-                  }
-                });
-
-                // 2. 🔥 CHECK BILLS (Invoices / Excel Imported)
-                bills.forEach((bill) => {
-                  const billParty = String(bill.partyName || "").trim().toUpperCase();
-                  
-                  if (selectedParty === billParty) {
-                    // Check duplicate
-                    const isAlreadyAdded = pendingItems.some(p => p.bilty === bill.biltyNo || p.bilty === bill.billNo);
-                    
-                    if (!isAlreadyAdded) {
-                      const billAmount = Number(bill.subtotal || bill.total || 0);
-                      
-                      const adjusted = accounts.reduce((sum, account) => {
-                        if (account.id === editingAccount?.id) return sum;
-                        const allocation = account.billAllocations?.[bill.id];
-                        const tds = account.billTds?.[bill.id];
-                        const deduction = account.billDeductions?.[bill.id];
-                        return sum + Number(allocation || 0) + Number(tds || 0) + Number(deduction || 0);
-                      }, 0);
-
-                      const pending = billAmount - adjusted;
-                      if (pending > 0.01) {
-                        pendingItems.push({
-                          ...bill,
-                          billAmount,
-                          alreadyAdjusted: adjusted,
-                          pending,
-                          displayNo: bill.billNo || "BILL",
-                        });
-                      }
                     }
                   }
                 });
@@ -7765,13 +7731,12 @@ Thank You`;
                 if (pendingItems.length === 0) {
                   return (
                     <tr>
-                      <td colSpan="10" style={{ textAlign: "center", color: "#16855b", padding: "20px", fontWeight: "bold" }}>
+                      <td colSpan="11" style={{ textAlign: "center", color: "#16855b", padding: "20px", fontWeight: "bold" }}>
                         ✅ No pending bills found for this customer.
                       </td>
                     </tr>
                   );
                 }
-
                return pendingItems.map((item) => {
   const selected = (accountForm.billIds || []).includes(String(item.id));
 
