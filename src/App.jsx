@@ -769,12 +769,14 @@ const loadAllData = async () => {
       .eq('firm_id', firmId);
     if (billsData) setBills(billsData);
 
-    // ✅ ACCOUNTS — firm filter
-    let { data: accountsData } = await supabase
-      .from('accounts')
-      .select('*')
-      .eq('firm_id', firmId);
-    if (accountsData) setAccounts(accountsData);
+  // ✅ ACCOUNTS — firm filter
+let { data: accountsData, error: accError } = await supabase
+  .from('accounts')
+  .select('*')
+  .eq('firm_id', firmId);  // 🔥 YEH LINE HONI CHAHIYE
+
+if (accError) console.log("Error loading accounts:", accError);
+if (accountsData) setAccounts(accountsData);
 
     // ✅ CUSTOMER VISITS — firm filter
     let { data: visitsData } = await supabase
@@ -7301,17 +7303,36 @@ Thank You`;
 
     const saveAccount = async () => {
   console.log("🚀 SAVE ACCOUNT STARTED");
-  console.log("📝 accountForm:", accountForm);
   
   if (!accountForm.date) { alert("Date select karein."); return; }
   if (!accountForm.partyName.trim()) { alert("Party Name enter karein."); return; }
-  if (!accountForm.amount || Number(accountForm.amount) <= 0) { alert("Valid amount enter karein."); return; }
 
+  let finalAmount = Number(accountForm.amount || 0);
+  
+  if (accountForm.allocationType === "BILL" && accountForm.billIds && accountForm.billIds.length > 0) {
+    const calculatedAdjustAmount = accountForm.billIds.reduce((sum, billId) => {
+      return sum + Number(accountForm.billAllocations?.[billId] || 0);
+    }, 0);
+
+    if (calculatedAdjustAmount <= 0) {
+      alert("❌ Please adjust amount enter karein niche bill settlement table mein.");
+      return;
+    }
+    finalAmount = calculatedAdjustAmount; 
+  }
+
+  if (finalAmount <= 0) { 
+    alert("Valid amount enter karein."); 
+    return; 
+  }
+
+  // 🔥 FIRM ID ADD KIYA HAI
   const finalAccountData = {
+    firm_id: currentFirm?.id || null, 
     date: accountForm.date,
     type: accountForm.type || "RECEIPT",
     partyName: accountForm.partyName || "",
-    amount: String(accountForm.amount || 0),
+    amount: String(finalAmount),
     paymentMode: accountForm.paymentMode || "BANK",
     referenceNo: accountForm.referenceNo || "",
     category: accountForm.category || "OTHER",
@@ -7329,8 +7350,6 @@ Thank You`;
     billNetAmounts: accountForm.billNetAmounts || {},
   };
 
-  console.log("💾 FINAL DATA SENDING:", finalAccountData);
-
   try {
     let result;
     if (editingAccount && editingAccount.id) {
@@ -7339,7 +7358,6 @@ Thank You`;
         .update(finalAccountData)
         .eq('id', editingAccount.id);
     } else {
-      // Money Receipt No. generate karo
       if (finalAccountData.type === "RECEIPT") {
         finalAccountData.moneyReceiptNo = `MR-${new Date().getFullYear()}-${String(accounts.length + 1).padStart(4, "0")}`;
       }
@@ -7347,8 +7365,6 @@ Thank You`;
         .from('accounts')
         .insert([finalAccountData]);
     }
-    
-    console.log("📊 RESULT:", result);
     
     if (result.error) throw result.error;
     
