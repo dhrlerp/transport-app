@@ -7640,7 +7640,6 @@ Thank You`;
       }}
     >
       <strong>Select Pending Bills</strong>
-
       <button
         type="button"
         className="blueBtn"
@@ -7655,17 +7654,8 @@ Thank You`;
       </button>
     </div>
 
-    {/* =====================================================
-        ADD BILL SELECTOR
-    ===================================================== */}
     {accountForm.showBillSelector && (
-      <div
-        className="card"
-        style={{
-          marginBottom: "15px",
-          padding: "15px",
-        }}
-      >
+      <div className="card" style={{ marginBottom: "15px", padding: "15px" }}>
         <h4>Customer Pending Bills</h4>
 
         <div className="tableWrapper">
@@ -7673,7 +7663,8 @@ Thank You`;
             <thead>
               <tr>
                 <th>Select</th>
-                <th>Bill/Bilty No.</th>
+                <th>Bill No.</th>
+                <th>Bilty No.</th>
                 <th>Date</th>
                 <th>Party</th>
                 <th>Bill Amount</th>
@@ -7684,23 +7675,22 @@ Thank You`;
                 <th>Deduction</th>
               </tr>
             </thead>
-
             <tbody>
               {(() => {
                 if (!accountForm.partyName) {
                   return (
                     <tr>
-                      <td colSpan="10" style={{ textAlign: "center", color: "#999", padding: "20px" }}>
+                      <td colSpan="11" style={{ textAlign: "center", color: "#999", padding: "20px" }}>
                         Pehle Party Name select karein.
                       </td>
                     </tr>
                   );
                 }
 
-                              const selectedParty = String(accountForm.partyName).trim().toUpperCase();
+                const selectedParty = String(accountForm.partyName).trim().toUpperCase();
                 let pendingItems = [];
 
-                // 🔥 SIRF BILLS CHECK KARO (Jinka bill generate hua hai)
+                // 🔥 SIRF BILLS (INVOICES) CHECK KARO
                 bills.forEach((bill) => {
                   const billParty = String(bill.partyName || "").trim().toUpperCase();
                   
@@ -7722,7 +7712,6 @@ Thank You`;
                         billAmount,
                         alreadyAdjusted: adjusted,
                         pending,
-                        displayNo: bill.billNo || "BILL",
                       });
                     }
                   }
@@ -7737,127 +7726,127 @@ Thank You`;
                     </tr>
                   );
                 }
-               return pendingItems.map((item) => {
-  const selected = (accountForm.billIds || []).includes(String(item.id));
 
-  return (
-    <tr key={item.id}>
-      <td>
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={(e) => {
-            const checked = e.target.checked;
-            setAccountForm((prev) => {
-              const oldIds = prev.billIds || [];
-              const oldAllocations = prev.billAllocations || {};
-              const oldTds = prev.billTds || {};
-              const oldDeductions = prev.billDeductions || {};
+                return pendingItems.map((item) => {
+                  const selected = (accountForm.billIds || []).includes(String(item.id));
 
-              if (checked) {
-                return {
-                  ...prev,
-                  billIds: [...oldIds, String(item.id)],
-                  billAllocations: { ...oldAllocations, [item.id]: oldAllocations[item.id] || "" },
-                  billTds: { ...oldTds, [item.id]: oldTds[item.id] || "" },
-                  billDeductions: { ...oldDeductions, [item.id]: oldDeductions[item.id] || "" },
-                };
-              } else {
-                const newIds = oldIds.filter((id) => id !== String(item.id));
-                const newAllocations = { ...oldAllocations };
-                const newTds = { ...oldTds };
-                const newDeductions = { ...oldDeductions };
-                delete newAllocations[item.id];
-                delete newTds[item.id];
-                delete newDeductions[item.id];
-                return {
-                  ...prev,
-                  billIds: newIds,
-                  billAllocations: newAllocations,
-                  billTds: newTds,
-                  billDeductions: newDeductions,
-                };
-              }
-            });
-          }}
-        />
-      </td>
-      
-      {/* 🔥 BILL NO. COLUMN */}
-      <td style={{ whiteSpace: 'nowrap' }}>
-        <strong>{item.billNo || "-"}</strong>
-      </td>
+                  return (
+                    <tr key={item.id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setAccountForm((prev) => {
+                              const oldIds = prev.billIds || [];
+                              const oldAllocations = prev.billAllocations || {};
+                              const oldTds = prev.billTds || {};
+                              const oldDeductions = prev.billDeductions || {};
 
-      {/* 🔥 BILTY NO. COLUMN */}
-      <td style={{ whiteSpace: 'nowrap' }}>
-        <strong>{item.bilty || "-"}</strong>
-      </td>
+                              if (checked) {
+                                return {
+                                  ...prev,
+                                  billIds: [...oldIds, String(item.id)],
+                                  billAllocations: { ...oldAllocations, [item.id]: oldAllocations[item.id] || "" },
+                                  billTds: { ...oldTds, [item.id]: oldTds[item.id] || "" },
+                                  billDeductions: { ...oldDeductions, [item.id]: oldDeductions[item.id] || "" },
+                                };
+                              } else {
+                                const newIds = oldIds.filter((id) => id !== String(item.id));
+                                const newAllocations = { ...oldAllocations };
+                                const newTds = { ...oldTds };
+                                const newDeductions = { ...oldDeductions };
+                                delete newAllocations[item.id];
+                                delete newTds[item.id];
+                                delete newDeductions[item.id];
+                                return {
+                                  ...prev,
+                                  billIds: newIds,
+                                  billAllocations: newAllocations,
+                                  billTds: newTds,
+                                  billDeductions: newDeductions,
+                                };
+                              }
+                            });
+                          }}
+                        />
+                      </td>
+                      
+                      {/* 🔥 BILL NO. COLUMN */}
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <strong>{item.billNo || "-"}</strong>
+                      </td>
 
-      <td style={{ whiteSpace: 'nowrap' }}>{formatDate(item.date)}</td>
-      
-      {/* 🔥 PARTY NAME KO CHOTA RAKHNE KE LIYE STYLE */}
-      <td style={{ maxWidth: '180px', fontSize: '13px' }}>
-        {item.consignor || item.partyName || item.consignee || "-"}
-      </td>
-      
-      <td>₹{money(item.billAmount)}</td>
-      <td>₹{money(item.alreadyAdjusted)}</td>
-      <td><strong style={{ color: "#c62828" }}>₹{money(item.pending)}</strong></td>
-      
-      <td>
-        <input
-          type="number"
-          min="0"
-          value={accountForm.billAllocations?.[item.id] || ""}
-          onChange={(e) => {
-            const value = e.target.value;
-            setAccountForm((prev) => ({
-              ...prev,
-              billAllocations: { ...(prev.billAllocations || {}), [item.id]: value },
-            }));
-          }}
-          placeholder="0"
-          style={{ width: "80px", padding: "6px", border: "1px solid #ccc", borderRadius: "4px" }}
-          disabled={!selected}
-        />
-      </td>
-      <td>
-        <input
-          type="number"
-          min="0"
-          value={accountForm.billTds?.[item.id] || ""}
-          onChange={(e) => {
-            const value = e.target.value;
-            setAccountForm((prev) => ({
-              ...prev,
-              billTds: { ...(prev.billTds || {}), [item.id]: value },
-            }));
-          }}
-          placeholder="0"
-          style={{ width: "70px", padding: "6px", border: "1px solid #ccc", borderRadius: "4px" }}
-          disabled={!selected}
-        />
-      </td>
-      <td>
-        <input
-          type="number"
-          min="0"
-          value={accountForm.billDeductions?.[item.id] || ""}
-          onChange={(e) => {
-            const value = e.target.value;
-            setAccountForm((prev) => ({
-              ...prev,
-              billDeductions: { ...(prev.billDeductions || {}), [item.id]: value },
-            }));
-          }}
-          placeholder="0"
-          style={{ width: "80px", padding: "6px", border: "1px solid #ccc", borderRadius: "4px" }}
-          disabled={!selected}
-        />
-      </td>
-    </tr>
-  );
-});
+                      {/* 🔥 BILTY NO. COLUMN */}
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <strong>{item.biltyNo || item.bilty || "-"}</strong>
+                      </td>
+
+                      <td style={{ whiteSpace: 'nowrap' }}>{formatDate(item.date)}</td>
+                      
+                      <td style={{ maxWidth: '180px', fontSize: '13px' }}>
+                        {item.partyName || "-"}
+                      </td>
+                      
+                      <td>₹{money(item.billAmount)}</td>
+                      <td>₹{money(item.alreadyAdjusted)}</td>
+                      <td><strong style={{ color: "#c62828" }}>₹{money(item.pending)}</strong></td>
+                      
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          value={accountForm.billAllocations?.[item.id] || ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setAccountForm((prev) => ({
+                              ...prev,
+                              billAllocations: { ...(prev.billAllocations || {}), [item.id]: value },
+                            }));
+                          }}
+                          placeholder="0"
+                          style={{ width: "80px", padding: "6px", border: "1px solid #ccc", borderRadius: "4px" }}
+                          disabled={!selected}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          value={accountForm.billTds?.[item.id] || ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setAccountForm((prev) => ({
+                              ...prev,
+                              billTds: { ...(prev.billTds || {}), [item.id]: value },
+                            }));
+                          }}
+                          placeholder="0"
+                          style={{ width: "70px", padding: "6px", border: "1px solid #ccc", borderRadius: "4px" }}
+                          disabled={!selected}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          value={accountForm.billDeductions?.[item.id] || ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setAccountForm((prev) => ({
+                              ...prev,
+                              billDeductions: { ...(prev.billDeductions || {}), [item.id]: value },
+                            }));
+                          }}
+                          placeholder="0"
+                          style={{ width: "80px", padding: "6px", border: "1px solid #ccc", borderRadius: "4px" }}
+                          disabled={!selected}
+                        />
+                      </td>
+                    </tr>
+                  );
+                });
               })()}
             </tbody>
           </table>
@@ -7865,15 +7854,12 @@ Thank You`;
       </div>
     )}
 
-    {/* =====================================================
-        SELECTED BILL SETTLEMENT
-    ===================================================== */}
     {(accountForm.billIds || []).length > 0 && (
       <div className="tableWrapper">
         <table>
           <thead>
             <tr>
-              <th>Bill/Bilty No.</th>
+              <th>Bill No.</th>
               <th>Bill Amount</th>
               <th>Adjust Amount</th>
               <th>TDS</th>
@@ -7885,13 +7871,11 @@ Thank You`;
           </thead>
           <tbody>
             {(accountForm.billIds || []).map((billId) => {
-              // Dono tables me se bill dhundho
-              const bill = bilties.find((item) => String(item.id) === String(billId)) || 
-                           bills.find((item) => String(item.id) === String(billId));
+              const bill = bills.find((item) => String(item.id) === String(billId));
               
               if (!bill) return null;
 
-              const billAmount = Number(bill.freight || bill.subtotal || bill.total || 0);
+              const billAmount = Number(bill.subtotal || bill.total || 0);
               const adjust = Number(accountForm.billAllocations?.[billId] || 0);
               const tds = Number(accountForm.billTds?.[billId] || 0);
               const deduction = Number(accountForm.billDeductions?.[billId] || 0);
@@ -7901,7 +7885,7 @@ Thank You`;
 
               return (
                 <tr key={billId}>
-                  <td><strong>{bill.bilty || bill.billNo || "-"}</strong></td>
+                  <td><strong>{bill.billNo || "-"}</strong></td>
                   <td>₹{money(billAmount)}</td>
                   <td>
                     <input
@@ -7916,6 +7900,7 @@ Thank You`;
                         }));
                       }}
                       placeholder="Adjust"
+                      style={{ width: "80px", padding: "6px", border: "1px solid #ccc", borderRadius: "4px" }}
                     />
                   </td>
                   <td>
@@ -7931,6 +7916,7 @@ Thank You`;
                         }));
                       }}
                       placeholder="TDS"
+                      style={{ width: "70px", padding: "6px", border: "1px solid #ccc", borderRadius: "4px" }}
                     />
                   </td>
                   <td>
@@ -7946,6 +7932,7 @@ Thank You`;
                         }));
                       }}
                       placeholder="Deduction"
+                      style={{ width: "80px", padding: "6px", border: "1px solid #ccc", borderRadius: "4px" }}
                     />
                   </td>
                   <td><strong>₹{money(netReceived)}</strong></td>
